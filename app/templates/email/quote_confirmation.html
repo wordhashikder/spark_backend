@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import answers_table %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name }},</p>
+<p style="margin:0 0 16px;">Thanks for your EV charger quote request. Your reference is <strong>{{ reference }}</strong>.</p>
+{% if installer_names %}
+<p style="margin:0 0 8px;">We have shared your request with:</p>
+<ul style="margin:0 0 16px;padding-left:20px;">
+  {% for name in installer_names %}
+  <li>{{ name }}</li>
+  {% endfor %}
+</ul>
+<p style="margin:0 0 16px;">They will contact you directly with their quotes.</p>
+{% else %}
+<p style="margin:0 0 16px;">We do not have an installer available in your area just yet. We have saved your request and will be in touch as soon as an installer is available.</p>
+{% endif %}
+<p style="margin:0;">Here is what you told us:</p>
+{{ answers_table(answers) }}
+{% endblock %}

@@ -1,0 +1,19 @@
+Hi {{ business_name }},
+
+You have a new EV charger enquiry (reference {{ reference }}).
+
+Customer
+{{ customer.first_name }}
+{{ customer.email }}
+{{ customer.phone }}
+
+Their answers
+{% for question, answer in answers %}
+{{ question }}: {{ answer }}
+{% endfor %}
+
+View it in your account: {{ account_url }}
+
+Customers usually choose the installer who replies first, so get in touch soon.
+
+PickASparky

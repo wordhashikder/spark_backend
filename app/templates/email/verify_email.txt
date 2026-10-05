@@ -1,0 +1,10 @@
+Hi {{ contact_name }},
+
+Thanks for joining PickASparky. Please confirm your email address so we can review your listing:
+
+{{ link }}
+
+This link is valid for 48 hours. If you did not create an account, you can ignore this email.
+
+PickASparky
+{{ support_email }}

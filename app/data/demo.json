@@ -1,0 +1,460 @@
+{
+  "postcodes": [
+    {"postcode": "M1 1AA", "location": "manchester"},
+    {"postcode": "M3 4EN", "location": "manchester"},
+    {"postcode": "SK1 3XE", "location": "stockport"},
+    {"postcode": "LS1 4AP", "location": "leeds"}
+  ],
+  "installers": [
+    {
+      "business_name": "GreenCharge Electrical",
+      "location": "manchester",
+      "base_postcode": "M1 1AE",
+      "contact_name": "Daniel Hughes",
+      "phone": "0161 496 0101",
+      "status": "approved",
+      "plan": "premium",
+      "is_featured": true,
+      "years_experience": 5,
+      "coverage_radius_miles": 25,
+      "tagline": "EV charger installations for homes and businesses",
+      "description": "We are a Manchester-based electrical company specialising in EV charger installations for homes, businesses and workplaces. With over 5 years of experience, we provide reliable, high-quality installations and friendly, professional service.\n\nOur qualified electricians can help you choose the right charger for your needs and ensure a safe, compliant installation. We also install solar panels, battery storage and offer a full range of electrical services.",
+      "services": [
+        "ev_charger_installation",
+        "domestic_electrical",
+        "commercial_electrical",
+        "solar_battery"
+      ],
+      "accreditations": [
+        "ozev",
+        "napit",
+        "niceic",
+        "trustmark"
+      ],
+      "areas_covered": [
+        "Manchester",
+        "Stockport",
+        "Salford",
+        "Oldham",
+        "Trafford",
+        "Bury",
+        "Rochdale",
+        "Altrincham",
+        "Warrington"
+      ],
+      "logo_url": "/images/demo/logo-greencharge.png",
+      "photos": [
+        "/images/demo/gallery-1.jpg",
+        "/images/demo/gallery-2.jpg",
+        "/images/demo/gallery-3.jpg"
+      ]
+    },
+    {
+      "business_name": "VoltWise Electrical",
+      "location": "manchester",
+      "base_postcode": "M4 5JD",
+      "contact_name": "Priya Shah",
+      "phone": "0161 496 0102",
+      "status": "approved",
+      "plan": "premium",
+      "is_featured": false,
+      "years_experience": 8,
+      "coverage_radius_miles": 15,
+      "tagline": "Smart home charging installed by local electricians",
+      "description": "VoltWise Electrical installs home and workplace EV chargers across Manchester. Every installation is carried out by a qualified electrician and comes with a full handover.",
+      "services": [
+        "ev_charger_installation",
+        "domestic_electrical",
+        "smart_home"
+      ],
+      "accreditations": [
+        "ozev",
+        "niceic"
+      ],
+      "areas_covered": [
+        "Manchester",
+        "Salford",
+        "Trafford",
+        "Stockport"
+      ]
+    },
+    {
+      "business_name": "ChargeRight Solutions",
+      "location": "salford",
+      "base_postcode": "M5 4WT",
+      "contact_name": "Tom Barker",
+      "phone": "0161 496 0103",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": true,
+      "years_experience": 10,
+      "coverage_radius_miles": 20,
+      "tagline": "Home, workplace and fleet charging",
+      "description": "ChargeRight Solutions designs and installs EV charging for homes, workplaces and small fleets across Salford and Greater Manchester.",
+      "services": [
+        "ev_charger_installation",
+        "commercial_electrical",
+        "eicr_testing"
+      ],
+      "accreditations": [
+        "ozev",
+        "napit",
+        "trustmark"
+      ],
+      "areas_covered": [
+        "Salford",
+        "Manchester",
+        "Bolton",
+        "Bury",
+        "Trafford"
+      ]
+    },
+    {
+      "business_name": "North West EV",
+      "location": "stockport",
+      "base_postcode": "SK1 3XE",
+      "contact_name": "Rachel Owen",
+      "phone": "0161 496 0104",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": true,
+      "years_experience": 6,
+      "coverage_radius_miles": 20,
+      "tagline": "Friendly EV charger installers in Stockport",
+      "description": "North West EV fits home chargers across Stockport and south Manchester, with clear fixed prices and tidy workmanship.",
+      "services": [
+        "ev_charger_installation",
+        "domestic_electrical",
+        "electrical_repairs"
+      ],
+      "accreditations": [
+        "ozev",
+        "niceic"
+      ],
+      "areas_covered": [
+        "Stockport",
+        "Manchester",
+        "Macclesfield",
+        "Altrincham"
+      ]
+    },
+    {
+      "business_name": "EcoWatt Installations",
+      "location": "trafford",
+      "base_postcode": "M32 0TH",
+      "contact_name": "Imran Malik",
+      "phone": "0161 496 0105",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": true,
+      "years_experience": 4,
+      "coverage_radius_miles": 15,
+      "tagline": "EV chargers, solar and battery storage",
+      "description": "EcoWatt Installations combines EV charging with solar and battery storage so you can charge your car for less.",
+      "services": [
+        "ev_charger_installation",
+        "solar_battery",
+        "smart_home"
+      ],
+      "accreditations": [
+        "ozev",
+        "mcs"
+      ],
+      "areas_covered": [
+        "Trafford",
+        "Altrincham",
+        "Manchester",
+        "Salford"
+      ]
+    },
+    {
+      "business_name": "GreenCharge Experts",
+      "location": "liverpool",
+      "base_postcode": "L1 8JQ",
+      "contact_name": "Sean Gallagher",
+      "phone": "0151 496 0106",
+      "status": "approved",
+      "plan": "premium",
+      "is_featured": true,
+      "years_experience": 9,
+      "coverage_radius_miles": 20,
+      "tagline": "Liverpool's EV charging specialists",
+      "description": "GreenCharge Experts installs EV chargers for homes and businesses across Liverpool and Merseyside.",
+      "services": [
+        "ev_charger_installation",
+        "domestic_electrical",
+        "commercial_electrical"
+      ],
+      "accreditations": [
+        "ozev",
+        "niceic",
+        "trustmark"
+      ],
+      "areas_covered": [
+        "Liverpool",
+        "St Helens",
+        "Warrington"
+      ]
+    },
+    {
+      "business_name": "SparkEV Services",
+      "location": "chester",
+      "base_postcode": "CH1 2HJ",
+      "contact_name": "Helen Price",
+      "phone": "01632 960107",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": false,
+      "years_experience": 7,
+      "coverage_radius_miles": 20,
+      "tagline": "Home charger installation across Cheshire",
+      "description": "SparkEV Services is a family-run electrical business installing home EV chargers across Chester and Cheshire.",
+      "services": [
+        "ev_charger_installation",
+        "domestic_electrical"
+      ],
+      "accreditations": [
+        "ozev",
+        "napit"
+      ],
+      "areas_covered": [
+        "Chester",
+        "Crewe",
+        "Warrington"
+      ]
+    },
+    {
+      "business_name": "EcoVolt Solutions",
+      "location": "warrington",
+      "base_postcode": "WA1 1UH",
+      "contact_name": "Mark Jennings",
+      "phone": "01632 960108",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": false,
+      "years_experience": 5,
+      "coverage_radius_miles": 20,
+      "tagline": "Reliable EV charging for home and work",
+      "description": "EcoVolt Solutions installs EV chargers for homes and workplaces around Warrington, St Helens and north Cheshire.",
+      "services": [
+        "ev_charger_installation",
+        "commercial_electrical",
+        "eicr_testing"
+      ],
+      "accreditations": [
+        "ozev",
+        "niceic"
+      ],
+      "areas_covered": [
+        "Warrington",
+        "St Helens",
+        "Altrincham",
+        "Liverpool"
+      ]
+    },
+    {
+      "business_name": "BrightCharge Co.",
+      "location": "preston",
+      "base_postcode": "PR1 2HE",
+      "contact_name": "Laura Whitfield",
+      "phone": "01632 960109",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": false,
+      "years_experience": 3,
+      "coverage_radius_miles": 20,
+      "tagline": "Bright ideas for home charging",
+      "description": "BrightCharge Co. fits smart home chargers across Preston and central Lancashire.",
+      "services": [
+        "ev_charger_installation",
+        "smart_home"
+      ],
+      "accreditations": [
+        "ozev",
+        "elecsa"
+      ],
+      "areas_covered": [
+        "Preston",
+        "Blackburn",
+        "Bolton"
+      ]
+    },
+    {
+      "business_name": "AmpFlow Electric",
+      "location": "leeds",
+      "base_postcode": "LS1 4AP",
+      "contact_name": "James Thornton",
+      "phone": "0113 496 0110",
+      "status": "approved",
+      "plan": "premium",
+      "is_featured": false,
+      "years_experience": 12,
+      "coverage_radius_miles": 20,
+      "tagline": "Leeds electricians for EV, solar and more",
+      "description": "AmpFlow Electric is a Leeds electrical contractor installing EV chargers, solar and battery systems for homes and businesses.",
+      "services": [
+        "ev_charger_installation",
+        "domestic_electrical",
+        "commercial_electrical",
+        "solar_battery"
+      ],
+      "accreditations": [
+        "ozev",
+        "niceic",
+        "mcs"
+      ],
+      "areas_covered": [
+        "Leeds",
+        "Bradford",
+        "Huddersfield",
+        "York"
+      ]
+    },
+    {
+      "business_name": "NextGen Chargers",
+      "location": "bradford",
+      "base_postcode": "BD1 1HY",
+      "contact_name": "Aisha Khan",
+      "phone": "01632 960111",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": false,
+      "years_experience": 4,
+      "coverage_radius_miles": 15,
+      "tagline": "Next-generation charging for your home",
+      "description": "NextGen Chargers installs the latest smart chargers for homes across Bradford and West Yorkshire.",
+      "services": [
+        "ev_charger_installation",
+        "smart_home"
+      ],
+      "accreditations": [
+        "ozev",
+        "napit"
+      ],
+      "areas_covered": [
+        "Bradford",
+        "Leeds",
+        "Huddersfield"
+      ]
+    },
+    {
+      "business_name": "VoltStream Ltd",
+      "location": "huddersfield",
+      "base_postcode": "HD1 2QR",
+      "contact_name": "Peter Lockwood",
+      "phone": "01632 960112",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": false,
+      "years_experience": 6,
+      "coverage_radius_miles": 20,
+      "tagline": "EV charging installed properly",
+      "description": "VoltStream Ltd installs domestic and commercial EV chargers around Huddersfield and Kirklees.",
+      "services": [
+        "ev_charger_installation",
+        "electrical_repairs",
+        "eicr_testing"
+      ],
+      "accreditations": [
+        "ozev",
+        "niceic"
+      ],
+      "areas_covered": [
+        "Huddersfield",
+        "Bradford",
+        "Leeds",
+        "Oldham"
+      ]
+    },
+    {
+      "business_name": "PowerGrid Installers",
+      "location": "york",
+      "base_postcode": "YO1 7HH",
+      "contact_name": "Emma Clarke",
+      "phone": "01632 960113",
+      "status": "approved",
+      "plan": "pro",
+      "is_featured": false,
+      "years_experience": 8,
+      "coverage_radius_miles": 25,
+      "tagline": "York's local EV charger installers",
+      "description": "PowerGrid Installers fits EV chargers for homes and small businesses in York and the surrounding villages.",
+      "services": [
+        "ev_charger_installation",
+        "domestic_electrical"
+      ],
+      "accreditations": [
+        "ozev",
+        "trustmark"
+      ],
+      "areas_covered": [
+        "York",
+        "Leeds"
+      ]
+    },
+    {
+      "business_name": "Sparks & Co Electrical",
+      "location": "bolton",
+      "base_postcode": "BL1 1RU",
+      "contact_name": "Gary Dunn",
+      "phone": "01632 960114",
+      "status": "approved",
+      "plan": "free",
+      "is_featured": false,
+      "years_experience": 2,
+      "coverage_radius_miles": 15,
+      "tagline": "Local electricians in Bolton",
+      "description": "Sparks & Co Electrical is a small Bolton firm offering EV charger installation and general electrical work.",
+      "services": [
+        "ev_charger_installation",
+        "domestic_electrical",
+        "electrical_repairs"
+      ],
+      "accreditations": [
+        "napit"
+      ],
+      "areas_covered": [
+        "Bolton",
+        "Bury"
+      ]
+    },
+    {
+      "business_name": "Pennine EV Installs",
+      "location": "oldham",
+      "base_postcode": "OL1 1UT",
+      "contact_name": "Chris Ashworth",
+      "phone": "0161 496 0115",
+      "status": "pending",
+      "plan": "free",
+      "is_featured": false,
+      "years_experience": 1,
+      "coverage_radius_miles": 15,
+      "tagline": "New EV charger installers in Oldham",
+      "description": "Pennine EV Installs is awaiting approval.",
+      "services": [
+        "ev_charger_installation"
+      ],
+      "accreditations": [
+        "ozev"
+      ],
+      "areas_covered": [
+        "Oldham",
+        "Rochdale"
+      ]
+    }
+  ],
+  "reviews": [
+    {"installer": "GreenCharge Electrical", "rating": 5, "days_ago": 3, "title": "Great service from start to finish", "body": "The team were punctual, tidy and explained everything clearly. The charger was installed in a morning and has worked perfectly ever since.", "author_name": "Steve M.", "author_location": "Manchester"},
+    {"installer": "GreenCharge Electrical", "rating": 5, "days_ago": 9, "title": "Highly recommend", "body": "Quick quote, fair price and a very neat installation on the side of the house. They even helped set up the charging schedule in the app.", "author_name": "Sarah T.", "author_location": "Stockport"},
+    {"installer": "GreenCharge Electrical", "rating": 4, "days_ago": 20, "title": "Professional and reliable", "body": "Turned up when they said they would and did a good job. The cable run was longer than expected but they handled it without any fuss.", "author_name": "James P.", "author_location": "Salford"},
+    {"installer": "VoltWise Electrical", "rating": 5, "days_ago": 5, "title": "Found the right installer", "body": "I had no idea which charger to choose. VoltWise talked me through the options and fitted it within the week. Very happy.", "author_name": "Emma L.", "author_location": "Manchester"},
+    {"installer": "VoltWise Electrical", "rating": 4, "days_ago": 27, "title": "Good job, fair price", "body": "Straightforward installation and a competitive quote. Communication was good throughout and they left everything clean.", "author_name": "Daniel K.", "author_location": "Trafford"},
+    {"installer": "ChargeRight Solutions", "rating": 5, "days_ago": 7, "title": "Saved me time and hassle", "body": "I got three quotes through PickASparky and ChargeRight were the most helpful. The whole thing was sorted in a few days.", "author_name": "Olivia R.", "author_location": "Salford"},
+    {"installer": "ChargeRight Solutions", "rating": 5, "days_ago": 31, "title": "Excellent workplace install", "body": "They installed two chargers at our office with minimal disruption. Everything was certified and explained to our staff.", "author_name": "Mark D.", "author_location": "Bolton"},
+    {"installer": "North West EV", "rating": 5, "days_ago": 12, "title": "Friendly and knowledgeable", "body": "Really pleased with the service. They recommended a charger that suited our tariff and fitted it neatly in the garage.", "author_name": "Hannah B.", "author_location": "Stockport"},
+    {"installer": "EcoWatt Installations", "rating": 4, "days_ago": 16, "title": "Solar and charger together", "body": "EcoWatt linked our new charger to the solar panels so the car charges from the sun when it can. Works well.", "author_name": "Paul W.", "author_location": "Altrincham"},
+    {"installer": "GreenCharge Experts", "rating": 5, "days_ago": 22, "title": "Brilliant from quote to finish", "body": "Clear pricing, no hidden extras and a very tidy job. I would happily use them again and have already recommended them.", "author_name": "Laura S.", "author_location": "Liverpool"},
+    {"installer": "AmpFlow Electric", "rating": 5, "days_ago": 14, "title": "Top quality work", "body": "A proper professional outfit. They upgraded part of the consumer unit as well and everything was fully tested.", "author_name": "Tom H.", "author_location": "Leeds"},
+    {"installer": "PowerGrid Installers", "rating": 4, "days_ago": 35, "title": "Smooth installation", "body": "Booked in quickly and the installer was polite and efficient. Charger works as expected and looks neat on the wall.", "author_name": "Rebecca N.", "author_location": "York"}
+  ]
+}

@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Good news, {{ business_name }} is now live on PickASparky.</p>
+<p style="margin:0 0 16px;">Homeowners searching in your area can now find your profile.</p>
+{{ button(profile_url, "View your listing") }}
+<p style="margin:0;">Keep your profile up to date from <a href="{{ account_url }}" style="color:#0a9b53;">your account</a>.</p>
+{% endblock %}

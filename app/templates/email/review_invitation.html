@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name }},</p>
+<p style="margin:0 0 16px;">{{ business_name }} has told us they completed your EV charger installation. How did it go?</p>
+<p style="margin:0 0 16px;">Your review takes a couple of minutes and helps other homeowners choose an installer.</p>
+{{ button(link, "Leave a review") }}
+<p style="margin:0;">This link is personal to you and is valid for 60 days.</p>
+{% endblock %}

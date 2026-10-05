@@ -1,0 +1,22 @@
+Hi {{ first_name }},
+
+Thanks for your EV charger quote request. Your reference is {{ reference }}.
+
+{% if installer_names %}
+We have shared your request with:
+{% for name in installer_names %}
+- {{ name }}
+{% endfor %}
+
+They will contact you directly with their quotes.
+{% else %}
+We do not have an installer available in your area just yet. We have saved your request and will be in touch as soon as an installer is available.
+{% endif %}
+
+Here is what you told us:
+{% for question, answer in answers %}
+{{ question }}: {{ answer }}
+{% endfor %}
+
+PickASparky
+{{ support_email }}

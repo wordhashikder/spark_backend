@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">New contact form message.</p>
+<p style="margin:0 0 16px;">
+  <strong>From:</strong> {{ name }} (<a href="mailto:{{ email }}" style="color:#0a9b53;">{{ email }}</a>)<br>
+  <strong>Subject:</strong> {{ subject_label }}
+</p>
+<p style="margin:0;white-space:pre-wrap;">{{ message }}</p>
+{% endblock %}

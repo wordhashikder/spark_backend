@@ -1,0 +1,7 @@
+Thank you for applying to list {{ business_name }} on PickASparky.
+
+We have reviewed your application and are not able to approve the listing at this time.
+
+If you think we have missed something, or your details have changed, contact {{ support_email }} and we will take another look.
+
+PickASparky

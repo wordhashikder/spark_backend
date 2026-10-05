@@ -1,0 +1,16 @@
+Quote request {{ reference }} could not be matched to an installer.
+
+{% if geocoded %}
+No approved, lead-receiving installer covers this postcode.
+{% else %}
+The postcode could not be geocoded because the lookup service was unavailable, so no matching was attempted.
+{% endif %}
+
+Customer
+{{ customer.first_name }}
+{{ customer.email }}
+{{ customer.phone }}
+
+{% for question, answer in answers %}
+{{ question }}: {{ answer }}
+{% endfor %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hello,</p>
+<p style="margin:0 0 16px;">Someone tried to create a PickASparky installer account with this email address, but you already have one.</p>
+<p style="margin:0 0 16px;">If that was you, sign in to your existing account. You can reset your password from the sign-in page if you have forgotten it.</p>
+{{ button(account_url, "Go to my account") }}
+<p style="margin:0;">If it was not you, no action is needed and your account is unchanged.</p>
+{% endblock %}

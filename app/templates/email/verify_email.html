@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ contact_name }},</p>
+<p style="margin:0 0 16px;">Thanks for joining PickASparky. Please confirm your email address so we can review your listing.</p>
+{{ button(link, "Confirm email address") }}
+<p style="margin:0 0 16px;">This link is valid for 48 hours. If the button does not work, copy this address into your browser:</p>
+<p style="margin:0 0 16px;word-break:break-all;"><a href="{{ link }}" style="color:#0a9b53;">{{ link }}</a></p>
+<p style="margin:0;">If you did not create an account, you can ignore this email.</p>
+{% endblock %}

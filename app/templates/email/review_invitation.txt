@@ -1,0 +1,12 @@
+Hi {{ first_name }},
+
+{{ business_name }} has told us they completed your EV charger installation. How did it go?
+
+Your review takes a couple of minutes and helps other homeowners choose an installer:
+
+{{ link }}
+
+This link is personal to you and is valid for 60 days.
+
+PickASparky
+{{ support_email }}

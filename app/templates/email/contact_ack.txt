@@ -1,0 +1,6 @@
+Hi {{ name }},
+
+Thanks for getting in touch about "{{ subject_label }}". We have received your message and will reply as soon as we can.
+
+The PickASparky team
+{{ support_email }}

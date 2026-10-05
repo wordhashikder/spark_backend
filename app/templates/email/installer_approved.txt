@@ -1,0 +1,10 @@
+Good news, {{ business_name }} is now live on PickASparky.
+
+Homeowners searching in your area can now find your profile:
+
+{{ profile_url }}
+
+Keep your profile up to date from your account: {{ account_url }}
+
+PickASparky
+{{ support_email }}
