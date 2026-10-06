@@ -1,9 +1,25 @@
-.venv/
-__pycache__/
-*.pyc
+# Environment files (keep the *.example templates)
 .env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
 .pytest_cache/
 .ruff_cache/
-.mypy_cache/
-*.log
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+npm-debug.log*
+
+# OS and editors
+.DS_Store
+Thumbs.db
 .idea/
+.vscode/

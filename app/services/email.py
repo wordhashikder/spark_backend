@@ -165,9 +165,9 @@ def password_reset(to: str, token: str) -> Email:
 
 def installer_approved(installer: Installer, to: str) -> Email:
     settings = get_settings()
-    profile_url = (
-        f"{settings.frontend_url}/ev-charger-installers/{installer.location.slug}/{installer.slug}"
-    )
+    # The installer's one public profile URL. It depends on the installer alone, never on
+    # a location, and must match `installerPath` in the frontend (src/lib/site.ts).
+    profile_url = f"{settings.frontend_url}/uk/installer/{installer.slug}/"
     return Email(
         to=to,
         subject="Your PickASparky listing is live",
