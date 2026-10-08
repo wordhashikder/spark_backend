@@ -35,7 +35,8 @@ class QuoteCreate(BaseModel):
     notes: Annotated[Annotated[str, text(1, 1000)] | None, blank_as_none] = None
     first_name: Annotated[str, text(1, 60)]
     email: Email
-    phone: Phone
+    # Optional: blank means the customer prefers to be contacted by email.
+    phone: Annotated[Phone | None, blank_as_none] = None
     consent: bool
     installer_slug: Annotated[Annotated[str, text(1, 140)] | None, blank_as_none] = None
     # Honeypot: hidden from people, so only bots fill it in.

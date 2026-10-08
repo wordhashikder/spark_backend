@@ -4,12 +4,18 @@ import argparse
 import asyncio
 import getpass
 import sys
+from pathlib import Path
 
 from pydantic import TypeAdapter, ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import SessionFactory, engine
+from app.core.exceptions import AppError
+from app.models import Location
 from app.schemas.common import Email, Password
-from app.services import seeding
+from app.services import locations, seeding
+from app.services.storage import build_storage
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -24,6 +30,25 @@ def _build_parser() -> argparse.ArgumentParser:
 
     demo = commands.add_parser("seed-demo", help="load demo data (never in production)")
     demo.add_argument("--purge", action="store_true", help="remove the demo data instead")
+
+    blog = commands.add_parser(
+        "seed-blog", help="publish the sample blog posts from app/data/blog.json"
+    )
+    blog_mode = blog.add_mutually_exclusive_group()
+    blog_mode.add_argument("--purge", action="store_true", help="remove the sample posts instead")
+    blog_mode.add_argument(
+        "--if-empty",
+        action="store_true",
+        help="only when the blog has no posts at all (used on start-up by SEED_SAMPLE_BLOG)",
+    )
+
+    image = commands.add_parser(
+        "location-image", help="upload a photo for a location page (needs Cloudinary)"
+    )
+    image.add_argument("slug", help="location slug, e.g. cardiff")
+    image.add_argument("file", type=Path, help="JPEG, PNG or WebP file, at most 5 MB")
+    image.add_argument("--alt", help="alt text (default: '<town>, <region>')")
+    image.add_argument("--credit", help="photo credit shown on the page, e.g. 'Photo: Jane Doe'")
     return parser
 
 
@@ -40,6 +65,25 @@ def _admin_credentials(args: argparse.Namespace) -> tuple[str, str]:
         raise seeding.SeedingError(reasons) from exc
 
 
+async def _upload_location_image(session: AsyncSession, args: argparse.Namespace) -> Location:
+    settings = get_settings()
+    if not settings.cloudinary_configured:
+        raise seeding.SeedingError("Set the CLOUDINARY_* variables to upload images.")
+    if not args.file.is_file():
+        raise seeding.SeedingError(f"No such file: {args.file}")
+    try:
+        return await locations.set_image(
+            session,
+            args.slug,
+            args.file.read_bytes(),
+            build_storage(settings),
+            alt=args.alt,
+            credit=args.credit,
+        )
+    except AppError as exc:
+        raise seeding.SeedingError(exc.message) from exc
+
+
 async def _run(args: argparse.Namespace) -> str:
     try:
         async with SessionFactory() as session:
@@ -54,6 +98,14 @@ async def _run(args: argparse.Namespace) -> str:
                     return f"Removed {await seeding.purge_demo(session)} demo accounts."
                 case "seed-demo":
                     return f"Seeded {await seeding.seed_demo(session)} demo installers."
+                case "seed-blog" if args.purge:
+                    return f"Removed {await seeding.purge_blog(session)} sample blog posts."
+                case "seed-blog":
+                    added = await seeding.seed_blog(session, only_if_empty=args.if_empty)
+                    return f"Published {added} sample blog posts."
+                case "location-image":
+                    location = await _upload_location_image(session, args)
+                    return f"Set the photo for {location.name}: {location.image_url}"
         raise seeding.SeedingError(f"Unknown command: {args.command}")
     finally:
         await engine.dispose()

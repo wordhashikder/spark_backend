@@ -61,7 +61,8 @@ class QuoteRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     first_name: Mapped[str] = mapped_column(String(60))
     email: Mapped[str] = mapped_column(String(254))
-    phone: Mapped[str] = mapped_column(String(30))
+    # Optional: customers may choose to be contacted by email only.
+    phone: Mapped[str | None] = mapped_column(String(30))
     consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     target_installer_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("installers.id", ondelete="SET NULL"), index=True

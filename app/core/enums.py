@@ -61,6 +61,20 @@ class ReviewStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class BlogPostStatus(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+
+
+class DirectoryColumn(StrEnum):
+    """The four columns of the "Find trusted installers in your area" directory."""
+
+    NEARBY = "nearby"
+    POPULAR = "popular"
+    MORE_IN_AREA = "more_in_area"
+    OTHER = "other"
+
+
 class Plan(LabelledEnum):
     FREE = "free", "Free"
     PRO = "pro", "Pro"

@@ -1,18 +1,28 @@
-"""Reference and demo data: locations, the first admin, and the development-only demo set."""
+"""Reference and demo data: locations, the first admin, sample blog posts, and the
+development-only demo set."""
 
 import json
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import case, delete, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
 from app.core.config import get_settings
-from app.core.enums import AccreditationScheme, InstallerStatus, Plan, ReviewStatus, Role
+from app.core.enums import (
+    AccreditationScheme,
+    BlogPostStatus,
+    DirectoryColumn,
+    InstallerStatus,
+    Plan,
+    ReviewStatus,
+    Role,
+)
 from app.models import (
+    BlogPost,
     Installer,
     InstallerAccreditation,
     InstallerPhoto,
@@ -21,7 +31,8 @@ from app.models import (
     User,
 )
 from app.models.base import utcnow
-from app.services import installers, reviews
+from app.schemas.blog import BlogPostCreate
+from app.services import blog, installers, reviews
 from app.services.geocoding import GeocodedPostcode
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -44,33 +55,139 @@ def _require_non_production() -> None:
         raise SeedingError("Demo data must never be loaded when ENVIRONMENT=production.")
 
 
+# Photos shipped with the website (frontend/public/images/locations/). They belong to the
+# seed file; any other photo (one the admin uploaded) belongs to the admin.
+BUNDLED_LOCATION_PHOTOS = "/images/locations/"
+_PHOTO_FIELDS = ("image_url", "image_alt", "image_credit")
+# Written when a location is first created, then edited by the admin only.
+_ADMIN_MANAGED_LOCATION_FIELDS = frozenset({"intro", *_PHOTO_FIELDS})
+
+
+def _location_rows() -> list[dict[str, Any]]:
+    """`data/locations.json`, checked: unique slugs, and one town per directory slot."""
+    rows: list[dict[str, Any]] = []
+    slots: set[tuple[DirectoryColumn, int]] = set()
+    slugs: set[str] = set()
+    for entry in _load("locations.json"):
+        column = entry.get("directory_column")
+        position = entry.get("directory_position")
+        if column is not None:
+            column = DirectoryColumn(column)
+            if not isinstance(position, int) or position < 1 or (column, position) in slots:
+                raise SeedingError(f"{entry['slug']}: invalid directory position {position!r}.")
+            slots.add((column, position))
+        elif position is not None:
+            raise SeedingError(f"{entry['slug']}: a directory position needs a column.")
+        if entry["slug"] in slugs:
+            raise SeedingError(f"{entry['slug']} is listed twice in locations.json.")
+        slugs.add(entry["slug"])
+        rows.append(
+            {
+                "slug": entry["slug"],
+                "name": entry["name"],
+                "region": entry["region"],
+                "latitude": entry["latitude"],
+                "longitude": entry["longitude"],
+                "directory_column": column,
+                "directory_position": position,
+                "intro": entry.get("intro"),
+                **{field: entry.get(field) for field in _PHOTO_FIELDS},
+            }
+        )
+    return rows
+
+
 async def seed_locations(session: AsyncSession) -> int:
-    """Idempotently upsert `data/locations.json`; returns how many locations it holds."""
-    rows = [
-        {
-            "slug": entry["slug"],
-            "name": entry["name"],
-            "region": entry["region"],
-            "latitude": entry["latitude"],
-            "longitude": entry["longitude"],
-            "is_popular": entry.get("is_popular", False),
-            "popular_rank": entry.get("popular_rank"),
-            "intro": entry.get("intro"),
-            "image_url": entry.get("image_url"),
-        }
-        for entry in _load("locations.json")
-    ]
+    """Idempotently upsert `data/locations.json`; returns how many locations it holds.
+
+    Names, coordinates and the directory layout always follow the file. The intro is only
+    written when a location is created. The photo follows the file while the location has
+    no photo or one of the bundled photos, so a photo the admin uploaded is never replaced.
+    """
+    rows = _location_rows()
     statement = insert(Location).values(rows)
-    updatable = [column for column in rows[0] if column != "slug"]
+    updatable = [
+        column
+        for column in rows[0]
+        if column != "slug" and column not in _ADMIN_MANAGED_LOCATION_FIELDS
+    ]
+    bundled_or_none = or_(
+        Location.image_url.is_(None), Location.image_url.startswith(BUNDLED_LOCATION_PHOTOS)
+    )
+    photo = {
+        field: case((bundled_or_none, statement.excluded[field]), else_=getattr(Location, field))
+        for field in _PHOTO_FIELDS
+    }
     await session.execute(
         statement.on_conflict_do_update(
             index_elements=[Location.slug],
             set_={column: statement.excluded[column] for column in updatable}
+            | photo
             | {"updated_at": utcnow()},
         )
     )
     await session.commit()
     return len(rows)
+
+
+def _sample_posts() -> list[tuple[BlogPostCreate, int]]:
+    """`data/blog.json`, validated like an admin's request: (post, days since publishing)."""
+    return [
+        (
+            BlogPostCreate.model_validate(
+                {key: value for key, value in entry.items() if key != "days_ago"}
+            ),
+            entry["days_ago"],
+        )
+        for entry in _load("blog.json")["posts"]
+    ]
+
+
+async def seed_blog(session: AsyncSession, *, only_if_empty: bool = False) -> int:
+    """Publish the sample posts that do not exist yet; returns how many were added.
+
+    Safe to re-run: a post whose slug already exists (sample or admin-written) is left alone.
+    With `only_if_empty`, nothing is added once the blog has any post at all, so a deploy
+    that seeds on start never brings back samples the admin has deleted.
+    """
+    if only_if_empty and await session.scalar(select(BlogPost.id).limit(1)) is not None:
+        return 0
+    samples = _sample_posts()
+    existing = set(
+        await session.scalars(
+            select(BlogPost.slug).where(BlogPost.slug.in_([post.slug for post, _ in samples]))
+        )
+    )
+    now = utcnow()
+    added = 0
+    for post, days_ago in samples:
+        if post.slug in existing:
+            continue
+        published_at = now - timedelta(days=days_ago)
+        session.add(
+            BlogPost(
+                **post.model_dump(exclude={"status", "published_at"}),
+                category_slug=installers.slugify(post.category, fallback="general"),
+                reading_minutes=blog.reading_minutes(post.body),
+                status=BlogPostStatus.PUBLISHED,
+                published_at=published_at,
+                created_at=published_at,
+                updated_at=published_at,
+            )
+        )
+        added += 1
+    await session.commit()
+    return added
+
+
+async def purge_blog(session: AsyncSession) -> int:
+    """Delete the sample posts (matched by slug); posts the admin created are kept."""
+    slugs = [post.slug for post, _ in _sample_posts()]
+    result = await session.execute(
+        delete(BlogPost).where(BlogPost.slug.in_(slugs)).returning(BlogPost.id)
+    )
+    await session.commit()
+    return len(result.all())
 
 
 async def create_admin(session: AsyncSession, email: str, password: str) -> User:

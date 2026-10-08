@@ -1,0 +1,17 @@
+Hi {{ name }},
+
+{% if sent_to_installer %}
+Thanks for your request. We have sent it to {{ business_name }}, who will reply to you directly at {{ email }}{% if phone %} or on {{ phone }}{% endif %}.
+{% else %}
+Thanks for your request for a quote from {{ business_name }}. The PickASparky team will get back to you at {{ email }}{% if phone %} or on {{ phone }}{% endif %}.
+{% endif %}
+
+Your message
+{{ message }}
+
+View {{ business_name }}: {{ profile_url }}
+
+There is no obligation to accept a quote. If you would like more quotes to compare, you can request up to 5 free quotes from installers near you on our website.
+
+PickASparky
+{{ support_email }}

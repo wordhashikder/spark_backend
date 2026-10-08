@@ -136,34 +136,60 @@ async def test_locations_report_installer_counts(client: httpx.AsyncClient, db: 
     assert (await client.get("/api/v1/locations/atlantis")).status_code == 404
 
 
-async def test_directory_groups_locations_without_overlap(client: httpx.AsyncClient):
+async def test_directory_is_the_same_curated_layout_everywhere(client: httpx.AsyncClient):
     directory = (await client.get("/api/v1/locations/directory")).json()
-    assert directory["anchor"] == {"slug": "manchester", "name": "Manchester"}
     groups = {
-        name: [item["slug"] for item in directory[name]]
+        name: [item["name"] for item in directory[name]]
         for name in ("nearby", "popular", "more_in_area", "other")
     }
-    assert [len(group) for group in groups.values()] == [8, 8, 8, 8]
-    assert groups["nearby"][0] == "salford"
-    assert groups["popular"] == [
-        "london",
-        "birmingham",
-        "leeds",
-        "liverpool",
-        "bristol",
-        "manchester",
-        "glasgow",
-        "edinburgh",
-    ]
-    local = groups["nearby"] + groups["more_in_area"]
-    assert len(set(local)) == 16
-    assert "manchester" not in local
-    assert not set(groups["other"]) & set(local + groups["popular"])
-
+    assert groups == {
+        "nearby": [
+            "Salford",
+            "Trafford",
+            "Stockport",
+            "Oldham",
+            "Bury",
+            "Altrincham",
+            "Rochdale",
+            "Bolton",
+        ],
+        "popular": [
+            "London",
+            "Birmingham",
+            "Leeds",
+            "Liverpool",
+            "Bristol",
+            "Manchester",
+            "Glasgow",
+            "Edinburgh",
+        ],
+        "more_in_area": [
+            "Warrington",
+            "Macclesfield",
+            "St Helens",
+            "Blackburn",
+            "Huddersfield",
+            "Preston",
+            "Crewe",
+            "Bradford",
+        ],
+        "other": [
+            "Brighton",
+            "Cardiff",
+            "Chester",
+            "Coventry",
+            "Leicester",
+            "Newcastle",
+            "Nottingham",
+            "Sheffield",
+        ],
+    }
+    listed = [name for group in groups.values() for name in group]
+    assert len(listed) == len(set(listed)) == 32
+    assert set(directory) == {"nearby", "popular", "more_in_area", "other"}
+    # Older clients still send ?near=; the layout does not change with it.
     leeds = (await client.get("/api/v1/locations/directory", params={"near": "leeds"})).json()
-    assert leeds["nearby"][0]["slug"] == "bradford"
-    missing = await client.get("/api/v1/locations/directory", params={"near": "atlantis"})
-    assert missing.status_code == 404
+    assert leeds == directory
 
 
 async def test_postcode_lookup(client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession):

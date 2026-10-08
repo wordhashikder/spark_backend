@@ -5,7 +5,11 @@ You have a new EV charger enquiry (reference {{ reference }}).
 Customer
 {{ customer.first_name }}
 {{ customer.email }}
+{% if customer.phone %}
 {{ customer.phone }}
+{% else %}
+No phone number given: please reply by email.
+{% endif %}
 
 Their answers
 {% for question, answer in answers %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">A customer has sent a quote request from the profile of <strong>{{ business_name }}</strong>.</p>
+<p style="margin:0 0 16px;">{{ business_name }} is on the Free plan, which does not include enquiries, so the request was not sent to them. Please reply to the customer, or pass the request on to the installer.</p>
+<p style="margin:0 0 8px;"><strong>Customer</strong></p>
+<p style="margin:0 0 16px;">
+  {{ customer.name }}<br>
+  <a href="mailto:{{ customer.email }}" style="color:#0a9b53;">{{ customer.email }}</a>
+  {% if customer.phone %}<br>{{ customer.phone }}{% else %}<br>No phone number given: please reply by email.{% endif %}
+</p>
+<p style="margin:0 0 8px;"><strong>Their message</strong></p>
+<p style="margin:0 0 16px;white-space:pre-wrap;">{{ message }}</p>
+<p style="margin:0 0 8px;"><strong>Installer</strong></p>
+<p style="margin:0;">
+  {{ business_name }}<br>
+  <a href="mailto:{{ installer_email }}" style="color:#0a9b53;">{{ installer_email }}</a><br>
+  {{ installer_phone }}
+</p>
+{{ button("mailto:" ~ customer.email, "Reply to " ~ customer.name) }}
+<p style="margin:0;">Replying to this email answers {{ customer.name }} directly. Installer profile: <a href="{{ profile_url }}" style="color:#0a9b53;">{{ profile_url }}</a></p>
+{% endblock %}

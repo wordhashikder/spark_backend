@@ -121,5 +121,15 @@ class UnconfiguredStorage:
         raise ServiceNotConfiguredError
 
 
+async def discard_quietly(storage: ImageStorage, public_id: str | None) -> None:
+    """Delete a stored image that is no longer referenced; a failure only leaves an orphan."""
+    if not public_id:
+        return
+    try:
+        await storage.delete(public_id)
+    except Exception:
+        logger.warning("Could not delete stored image %s", public_id, exc_info=True)
+
+
 def build_storage(settings: Settings) -> ImageStorage:
     return CloudinaryStorage(settings) if settings.cloudinary_configured else UnconfiguredStorage()

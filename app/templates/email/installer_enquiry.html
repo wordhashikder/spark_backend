@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ business_name }},</p>
+<p style="margin:0 0 16px;">{{ customer.name }} has sent you a quote request from your PickASparky profile.</p>
+<p style="margin:0 0 8px;"><strong>Customer</strong></p>
+<p style="margin:0 0 16px;">
+  {{ customer.name }}<br>
+  <a href="mailto:{{ customer.email }}" style="color:#0a9b53;">{{ customer.email }}</a>
+  {% if customer.phone %}<br>{{ customer.phone }}{% else %}<br>No phone number given: please reply by email.{% endif %}
+</p>
+<p style="margin:0 0 8px;"><strong>Their message</strong></p>
+<p style="margin:0;white-space:pre-wrap;">{{ message }}</p>
+{{ button("mailto:" ~ customer.email, "Reply to " ~ customer.name) }}
+<p style="margin:0;">You can also reply to this email: your answer goes straight to {{ customer.name }}. Customers usually choose the installer who replies first, so get in touch soon.</p>
+{% endblock %}

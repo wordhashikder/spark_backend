@@ -17,7 +17,7 @@ import aiosmtplib
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
 from app.core.config import Settings, get_settings
-from app.models import ContactMessage, Installer, QuoteRequest
+from app.models import ContactMessage, Installer, InstallerEnquiry, QuoteRequest
 
 logger = logging.getLogger(__name__)
 
@@ -163,18 +163,20 @@ def password_reset(to: str, token: str) -> Email:
     )
 
 
-def installer_approved(installer: Installer, to: str) -> Email:
-    settings = get_settings()
+def _profile_url(installer: Installer) -> str:
     # The installer's one public profile URL. It depends on the installer alone, never on
     # a location, and must match `installerPath` in the frontend (src/lib/site.ts).
-    profile_url = f"{settings.frontend_url}/uk/installer/{installer.slug}/"
+    return f"{get_settings().frontend_url}/uk/installer/{installer.slug}/"
+
+
+def installer_approved(installer: Installer, to: str) -> Email:
     return Email(
         to=to,
         subject="Your PickASparky listing is live",
         template="installer_approved",
         context={
             "business_name": installer.business_name,
-            "profile_url": profile_url,
+            "profile_url": _profile_url(installer),
             "account_url": _account_url(),
         },
     )
@@ -239,6 +241,69 @@ def quote_unmatched(quote: QuoteRequest) -> Email:
             },
         },
         reply_to=quote.email,
+    )
+
+
+def installer_enquiry(enquiry: InstallerEnquiry, installer: Installer, to: str) -> Email:
+    """A customer's direct request, sent to the installer; replies go straight to them."""
+    return Email(
+        to=to,
+        subject=f"New quote request from {enquiry.name}",
+        template="installer_enquiry",
+        context={
+            "business_name": installer.business_name,
+            "customer": {"name": enquiry.name, "email": enquiry.email, "phone": enquiry.phone},
+            "message": enquiry.message,
+            "account_url": _account_url(),
+        },
+        reply_to=enquiry.email,
+    )
+
+
+def enquiry_for_team(
+    enquiry: InstallerEnquiry, installer: Installer, installer_email: str
+) -> Email:
+    """A request to a Free-plan (listed-only) installer, sent to the PickASparky team.
+
+    The installer's plan does not include enquiries, so the team replies to the customer.
+    Replies go straight to the customer.
+    """
+    return Email(
+        to=get_settings().support_email,
+        subject=f"Quote request for {installer.business_name} (Free plan)",
+        template="enquiry_for_team",
+        context={
+            "business_name": installer.business_name,
+            "installer_email": installer_email,
+            "installer_phone": installer.phone,
+            "profile_url": _profile_url(installer),
+            "customer": {"name": enquiry.name, "email": enquiry.email, "phone": enquiry.phone},
+            "message": enquiry.message,
+        },
+        reply_to=enquiry.email,
+    )
+
+
+def enquiry_ack(enquiry: InstallerEnquiry, installer: Installer) -> Email:
+    """The customer's copy of the request they sent from an installer's profile."""
+    sent_to_installer = enquiry.sent_to_installer
+    return Email(
+        to=enquiry.email,
+        subject=(
+            f"Your quote request has been sent to {installer.business_name}"
+            if sent_to_installer
+            else f"We've received your quote request for {installer.business_name}"
+        ),
+        template="enquiry_ack",
+        context={
+            "name": enquiry.name,
+            "business_name": installer.business_name,
+            "sent_to_installer": sent_to_installer,
+            "profile_url": _profile_url(installer),
+            "email": enquiry.email,
+            "phone": enquiry.phone,
+            "message": enquiry.message,
+        },
     )
 
 

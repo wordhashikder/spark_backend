@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     admin,
     auth,
     billing,
+    blog,
     contact,
     health,
     installers,
@@ -15,5 +16,16 @@ from app.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
-for module in (health, auth, installers, locations, quotes, reviews, contact, billing, admin):
+for module in (
+    health,
+    auth,
+    installers,
+    locations,
+    quotes,
+    reviews,
+    contact,
+    blog,
+    billing,
+    admin,
+):
     api_router.include_router(module.router)

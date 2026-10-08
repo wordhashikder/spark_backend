@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import BackgroundTasks, Depends, Query, Request
+from fastapi import BackgroundTasks, Depends, Query, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,7 @@ from app.core.config import Settings, get_settings
 from app.core.database import get_session
 from app.core.enums import Role
 from app.core.exceptions import ForbiddenError, NotAuthenticatedError, NotFoundError
+from app.core.middleware import MAX_UPLOAD_BYTES
 from app.core.rate_limit import client_ip
 from app.models import Installer, User
 from app.services import installers
@@ -73,6 +74,11 @@ class EmailQueue:
 
 
 EmailQueueDep = Annotated[EmailQueue, Depends()]
+
+
+async def read_upload(file: UploadFile) -> bytes:
+    """Read at most one byte past the limit, so an oversized file is detected, not buffered."""
+    return await file.read(MAX_UPLOAD_BYTES + 1)
 
 
 @dataclass(frozen=True, slots=True)

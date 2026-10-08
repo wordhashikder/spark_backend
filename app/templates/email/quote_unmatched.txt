@@ -9,7 +9,11 @@ The postcode could not be geocoded because the lookup service was unavailable, s
 Customer
 {{ customer.first_name }}
 {{ customer.email }}
+{% if customer.phone %}
 {{ customer.phone }}
+{% else %}
+No phone number given: please reply by email.
+{% endif %}
 
 {% for question, answer in answers %}
 {{ question }}: {{ answer }}

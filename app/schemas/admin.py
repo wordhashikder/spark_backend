@@ -144,7 +144,7 @@ class AdminQuote(BaseModel):
     notes: str | None
     first_name: str
     email: str
-    phone: str
+    phone: str | None
     target_installer_id: uuid.UUID | None
     created_at: datetime
 

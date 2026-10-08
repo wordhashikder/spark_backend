@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ name }},</p>
+{% if sent_to_installer %}
+<p style="margin:0 0 16px;">Thanks for your request. We have sent it to <strong>{{ business_name }}</strong>, who will reply to you directly at {{ email }}{% if phone %} or on {{ phone }}{% endif %}.</p>
+{% else %}
+<p style="margin:0 0 16px;">Thanks for your request for a quote from <strong>{{ business_name }}</strong>. The PickASparky team will get back to you at {{ email }}{% if phone %} or on {{ phone }}{% endif %}.</p>
+{% endif %}
+<p style="margin:0 0 8px;"><strong>Your message</strong></p>
+<p style="margin:0;white-space:pre-wrap;">{{ message }}</p>
+{{ button(profile_url, "View " ~ business_name) }}
+<p style="margin:0;">There is no obligation to accept a quote. If you would like more quotes to compare, you can request up to 5 free quotes from installers near you on our website.</p>
+{% endblock %}

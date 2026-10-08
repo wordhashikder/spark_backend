@@ -10,8 +10,8 @@
 <p style="margin:0 0 8px;"><strong>Customer</strong></p>
 <p style="margin:0 0 16px;">
   {{ customer.first_name }}<br>
-  <a href="mailto:{{ customer.email }}" style="color:#0a9b53;">{{ customer.email }}</a><br>
-  {{ customer.phone }}
+  <a href="mailto:{{ customer.email }}" style="color:#0a9b53;">{{ customer.email }}</a>
+  {% if customer.phone %}<br>{{ customer.phone }}{% else %}<br>No phone number given: please reply by email.{% endif %}
 </p>
 {{ answers_table(answers) }}
 {% endblock %}

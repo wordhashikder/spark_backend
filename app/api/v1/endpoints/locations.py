@@ -1,8 +1,6 @@
 """Locations and postcode lookup."""
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.api.deps import GeocoderDep, SessionDep
 from app.core.exceptions import FieldValidationError
@@ -25,11 +23,9 @@ async def list_locations(session: SessionDep) -> list[LocationSummary]:
 
 
 @router.get("/locations/directory")
-async def directory(
-    session: SessionDep,
-    near: Annotated[str, Query(max_length=80)] = locations.DEFAULT_DIRECTORY_ANCHOR,
-) -> LocationDirectory:
-    return await locations.get_directory(session, near)
+async def directory(session: SessionDep) -> LocationDirectory:
+    """The "Find trusted installers in your area" columns, shown on every page."""
+    return await locations.get_directory(session)
 
 
 @router.get("/locations/{slug}")

@@ -214,6 +214,29 @@ async def test_optional_answers_may_be_omitted(client: httpx.AsyncClient, db: As
     assert (quote.vehicle, quote.vehicle_undecided, quote.notes) == (None, True, None)
 
 
+async def test_phone_number_is_optional(client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession):
+    await create_installer(db, "Pro Manchester")
+    for phone in ("", "   ", None):
+        response = await client.post("/api/v1/quotes", json=quote_payload(phone=phone))
+        assert response.status_code == 201, phone
+    without_field = quote_payload()
+    del without_field["phone"]
+    assert (await client.post("/api/v1/quotes", json=without_field)).status_code == 201
+
+    phones = (await db.scalars(select(QuoteRequest.phone))).all()
+    assert phones == [None, None, None, None]
+    # The installer is told to reply by email; the template renders without a number.
+    lead = fakes.emails.of("new_lead")[0]
+    assert lead.context["customer"]["phone"] is None
+    rendered = fakes.emails._renderer.render(lead).get_body(preferencelist=("plain",))
+    assert "No phone number given" in rendered.get_content()
+
+    # A number that is given must still be a valid one.
+    invalid = await client.post("/api/v1/quotes", json=quote_payload(phone="12345"))
+    assert invalid.status_code == 422
+    assert list(invalid.json()["error"]["fields"]) == ["phone"]
+
+
 async def test_honeypot_submissions_look_successful_but_store_nothing(
     client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
 ):

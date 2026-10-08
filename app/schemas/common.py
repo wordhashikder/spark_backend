@@ -29,6 +29,14 @@ def _validate_phone(value: str) -> str:
     return " ".join(value.split())
 
 
+def _validate_image_url(value: str) -> str:
+    """An absolute `https://` URL, or a path on the website itself such as `/images/x.jpg`."""
+    is_site_path = value.startswith("/") and not value.startswith("//")
+    if not (value.startswith("https://") or is_site_path) or any(c.isspace() for c in value):
+        raise ValueError("Enter an https:// image URL or a site path starting with /.")
+    return value
+
+
 def validate_password(value: str) -> str:
     if not PASSWORD_MIN_LENGTH <= len(value) <= PASSWORD_MAX_LENGTH:
         raise ValueError(
@@ -64,6 +72,11 @@ Phone = Annotated[
     str, StringConstraints(strip_whitespace=True, max_length=30), AfterValidator(_validate_phone)
 ]
 Password = Annotated[str, AfterValidator(validate_password)]
+ImageUrl = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=2, max_length=500),
+    AfterValidator(_validate_image_url),
+]
 Email = Annotated[EmailStr, StringConstraints(max_length=254), AfterValidator(_lowercase)]
 OpaqueToken = Annotated[str, StringConstraints(min_length=1, max_length=2048)]
 

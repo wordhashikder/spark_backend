@@ -1,0 +1,19 @@
+Hi {{ business_name }},
+
+{{ customer.name }} has sent you a quote request from your PickASparky profile.
+
+Customer
+{{ customer.name }}
+{{ customer.email }}
+{% if customer.phone %}
+{{ customer.phone }}
+{% else %}
+No phone number given: please reply by email.
+{% endif %}
+
+Their message
+{{ message }}
+
+Reply to this email to answer {{ customer.name }} directly. Customers usually choose the installer who replies first, so get in touch soon.
+
+PickASparky

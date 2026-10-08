@@ -1,6 +1,5 @@
 """Installer profiles: public listing queries, the installer's own profile and its media."""
 
-import logging
 import re
 import unicodedata
 import uuid
@@ -17,9 +16,7 @@ from app.schemas.installer import AccreditationInput, InstallerUpdate
 from app.services import locations
 from app.services.geo import installer_distance_to
 from app.services.geocoding import GeocodedPostcode, Geocoder, PostcodeNotFoundError
-from app.services.storage import ImageStorage, validate_image
-
-logger = logging.getLogger(__name__)
+from app.services.storage import ImageStorage, discard_quietly, validate_image
 
 MAX_SIMILAR = 8
 _SLUG_MAX_LENGTH = 120
@@ -45,10 +42,10 @@ class PlanLimitError(ForbiddenError):
     message = "Your plan does not allow any more gallery photos."
 
 
-def slugify(value: str) -> str:
+def slugify(value: str, fallback: str = "installer") -> str:
     ascii_value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
     slug = re.sub(r"[^a-z0-9]+", "-", ascii_value.lower()).strip("-")
-    return slug[:_SLUG_MAX_LENGTH].strip("-") or "installer"
+    return slug[:_SLUG_MAX_LENGTH].strip("-") or fallback
 
 
 async def unique_slug(session: AsyncSession, business_name: str) -> str:
@@ -220,7 +217,7 @@ async def set_logo(
     installer.logo_public_id = stored.public_id
     await session.commit()
     if previous_public_id:
-        await _discard_asset(storage, previous_public_id)
+        await discard_quietly(storage, previous_public_id)
     return installer
 
 
@@ -255,12 +252,4 @@ async def delete_photo(
     installer.photos.remove(photo)
     await session.commit()
     if photo.public_id:
-        await _discard_asset(storage, photo.public_id)
-
-
-async def _discard_asset(storage: ImageStorage, public_id: str) -> None:
-    """Delete a stored image that is no longer referenced; a failure only leaves an orphan."""
-    try:
-        await storage.delete(public_id)
-    except Exception:
-        logger.warning("Could not delete stored image %s", public_id, exc_info=True)
+        await discard_quietly(storage, photo.public_id)
