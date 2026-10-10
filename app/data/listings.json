@@ -1,0 +1,1742 @@
+{
+ "source": "EV_installers.xlsx supplied by the client (October 2026): rows with status Valid (postcode checked against the ONS Postcode Directory, email domain and phone format checked).",
+ "listings": [
+  {
+   "business_name": "All Spark Electrical & Data Ltd",
+   "location": "altrincham",
+   "street_address": "27 Craven Road, Broadheath",
+   "locality": "Altrincham",
+   "postcode": "WA14 5JE",
+   "phone": "07756 642410",
+   "email": "elios@allspark-electrical.co.uk"
+  },
+  {
+   "business_name": "Atlantic Renewables Ltd",
+   "location": "altrincham",
+   "street_address": "51 Hillcroft Road",
+   "locality": "Altrincham",
+   "postcode": "WA14 4JE",
+   "phone": "01612 074044",
+   "email": null
+  },
+  {
+   "business_name": "Blanco Electric Limited",
+   "location": "altrincham",
+   "street_address": "5 Heyes Avenue",
+   "locality": "Timpereley",
+   "postcode": "WA15 6EE",
+   "phone": "07442 556048",
+   "email": "info@blancoelectrics.com"
+  },
+  {
+   "business_name": "Manchester Electrical Inspections T/A EV Charging Manchester",
+   "location": "altrincham",
+   "street_address": "100 Woodhouse Lane, Sale",
+   "locality": "Manchester",
+   "postcode": "M33 4LH",
+   "phone": "01616110044",
+   "email": "hello@evchargingmanchester.co.uk"
+  },
+  {
+   "business_name": "RLY Electrical Engineering Limited",
+   "location": "altrincham",
+   "street_address": "Office 5, 197 Manchester Road",
+   "locality": "Altricham",
+   "postcode": "WA14 5NU",
+   "phone": "07840 499474",
+   "email": "rlyelectrical@gmail.com"
+  },
+  {
+   "business_name": "S J Kavanagh Ltd",
+   "location": "altrincham",
+   "street_address": "1D Acresfield road Timperley",
+   "locality": "Altrincham",
+   "postcode": "WA15 6HX",
+   "phone": "07725 557282",
+   "email": "sean@sjkelec.co.uk"
+  },
+  {
+   "business_name": "Stephen Romain",
+   "location": "altrincham",
+   "street_address": "41 Arcadia Avenue",
+   "locality": "Sale",
+   "postcode": "M33 3RY",
+   "phone": "07767 829581",
+   "email": "saromain@btinternet.com"
+  },
+  {
+   "business_name": "Agile Electrics Ltd",
+   "location": "birmingham",
+   "street_address": "Unit 310 Zellig Building, The Custard Factory",
+   "locality": "Birmingham",
+   "postcode": "B9 4AU",
+   "phone": "08000 886319",
+   "email": "info@agileelectrics.com"
+  },
+  {
+   "business_name": "Cord Power Technologies Ltd",
+   "location": "birmingham",
+   "street_address": "International House, 126 Colmore Row",
+   "locality": "Birmingham",
+   "postcode": "B3 3AP",
+   "phone": "03301 025656",
+   "email": "hello@cord-ev.com"
+  },
+  {
+   "business_name": "Ecotech Mechanical & Electrical Solutions Ltd",
+   "location": "birmingham",
+   "street_address": "65 Avoca Court, 140 Cheapside",
+   "locality": "Birmingham",
+   "postcode": "B12 0PR",
+   "phone": "01217 530239",
+   "email": "enquiries@ecotechme.co.uk"
+  },
+  {
+   "business_name": "Electrical Energy Installations and Testing",
+   "location": "birmingham",
+   "street_address": "Suite 2A Blackthorne House, St Paul Square",
+   "locality": "Birmingham",
+   "postcode": "B3 1RL",
+   "phone": "07927 778393",
+   "email": "fungchi834@gmail.com"
+  },
+  {
+   "business_name": "Morris Electrical Installations Ltd",
+   "location": "birmingham",
+   "street_address": "4 Church Court, Cox Street",
+   "locality": "Birmingham",
+   "postcode": "B3 1RD",
+   "phone": "01212 969898",
+   "email": "admin@morrisel.co.uk"
+  },
+  {
+   "business_name": "Renewable Energy Consultants Ltd T/A Green Tech Hub",
+   "location": "birmingham",
+   "street_address": "Izabella House, 24-26 Regents Place",
+   "locality": "Birmingham",
+   "postcode": "B1 3NJ",
+   "phone": "01216 616400",
+   "email": "info@greentechhub.com"
+  },
+  {
+   "business_name": "Roamler UK Ltd",
+   "location": "birmingham",
+   "street_address": "Alpha Tower Office 20-20, Suffolk Street, Queensway",
+   "locality": "Birmingham",
+   "postcode": "B1 1TT",
+   "phone": null,
+   "email": "phil.aukland@roamler.com"
+  },
+  {
+   "business_name": "Simple Green Energy Limited",
+   "location": "birmingham",
+   "street_address": "Studio 9, 50-54 St Pauls Square",
+   "locality": "Birmingham",
+   "postcode": "B3 1QS",
+   "phone": "01217 078369",
+   "email": "kam.ghaillon@simplegreenenergy.org"
+  },
+  {
+   "business_name": "Clique Energy Ltd t/a Clique Energy",
+   "location": "bolton",
+   "street_address": "36 Bridge Street",
+   "locality": "Bolton",
+   "postcode": "BL1 2EH",
+   "phone": "07990 002488",
+   "email": "tommy@cliqueenergy.com"
+  },
+  {
+   "business_name": "Cosmos Electricals",
+   "location": "bolton",
+   "street_address": "82 Elgin Street",
+   "locality": "Halliwell",
+   "postcode": "BL1 3ET",
+   "phone": "07817 774781",
+   "email": "info@cosmoselectricals.com"
+  },
+  {
+   "business_name": "Eastfield Electrical Services Ltd",
+   "location": "bolton",
+   "street_address": "128 Crompton Way",
+   "locality": "Bolton",
+   "postcode": "BL2 2SB",
+   "phone": "07870 877021",
+   "email": "andy.yates@eastfieldelectrical.co.uk"
+  },
+  {
+   "business_name": "H&W Electrical Services Limited",
+   "location": "bolton",
+   "street_address": "30 Chorley New Road",
+   "locality": "Bolton",
+   "postcode": "BL1 4AP",
+   "phone": "07427 661658",
+   "email": "handwelectricalmcr@gmail.com"
+  },
+  {
+   "business_name": "Magnum Utilities Ltd",
+   "location": "bolton",
+   "street_address": "Atria, Spa Road",
+   "locality": "Bolton",
+   "postcode": "BL1 4AG",
+   "phone": "07593 549587",
+   "email": "david.chapman@magnumutilities.com"
+  },
+  {
+   "business_name": "T&S Electrical Services Ltd",
+   "location": "bolton",
+   "street_address": "4 Glenthorne Street",
+   "locality": "Bolton",
+   "postcode": "BL1 3SY",
+   "phone": "07954 732614",
+   "email": "ts.electricalservices@outlook.com"
+  },
+  {
+   "business_name": "Voltari Services Ltd",
+   "location": "bolton",
+   "street_address": "NORTEX BUSINESS CENTRE 105 CHORLEY OLD ROAD",
+   "locality": "Bolton",
+   "postcode": "BL1 3AS",
+   "phone": "01204 232060",
+   "email": "hello@voltari.co.uk"
+  },
+  {
+   "business_name": "Zsairs Group Ltd",
+   "location": "bolton",
+   "street_address": "175 Eskrick Street, Halliwell",
+   "locality": "Bolton",
+   "postcode": "BL1 3JA",
+   "phone": "07884 366641",
+   "email": "zsairsgroup@hotmail.co.uk"
+  },
+  {
+   "business_name": "A J Taylor Electrical Contractor Ltd",
+   "location": "brighton",
+   "street_address": "Unit 3, Centenary Industrial Estate, Hughes Road",
+   "locality": "Brighton",
+   "postcode": "BN2 4AW",
+   "phone": "01273 600089",
+   "email": "info@ajtaylor-electrical.co.uk"
+  },
+  {
+   "business_name": "Bradbury Electrical Contractors Ltd T/A Bradbury Electrical",
+   "location": "brighton",
+   "street_address": "Unit 8, Centenary Industrial Estate, Highes Road",
+   "locality": "Brighton",
+   "postcode": "BN2 4AW",
+   "phone": "01273 206207",
+   "email": "installations@bradburyelectrical.co.uk"
+  },
+  {
+   "business_name": "Diamond Electrical Solutions Ltd (Brighton)",
+   "location": "brighton",
+   "street_address": "5 Bartholomews",
+   "locality": "Brighton",
+   "postcode": "BN1 1HG",
+   "phone": "01273 917916",
+   "email": "service@diamondsolutionsgroup.co.uk"
+  },
+  {
+   "business_name": "Kingfisher Electrics Ltd",
+   "location": "brighton",
+   "street_address": "Flat 4, 10 Selborne Road",
+   "locality": "Hove",
+   "postcode": "BN3 3AG",
+   "phone": "01273 789276",
+   "email": "office@kingfisherelectrics.co.uk"
+  },
+  {
+   "business_name": "Loop Electric Limited",
+   "location": "brighton",
+   "street_address": "Platform 9, Floor 5 & 6 Tower Point, 44 North Road",
+   "locality": "Brighton",
+   "postcode": "BN1 1YR",
+   "phone": "07956 406932",
+   "email": "hello@loopelectric.co.uk"
+  },
+  {
+   "business_name": "Rye Lane Electrical Ltd",
+   "location": "brighton",
+   "street_address": "Floors 5 and 6, 44 North Road",
+   "locality": "Brighton",
+   "postcode": "BN1 1YR",
+   "phone": "02071579782",
+   "email": "liam@ryelaneelectrical.co.uk"
+  },
+  {
+   "business_name": "Sussex Sparks Ltd",
+   "location": "brighton",
+   "street_address": "26 Fairways, Brighton",
+   "locality": "East Sussex",
+   "postcode": "BN1 5AB",
+   "phone": "07999 799900",
+   "email": "info@sussexsparks.com"
+  },
+  {
+   "business_name": "Switched Sussex Ltd",
+   "location": "brighton",
+   "street_address": "112a Springfield Road",
+   "locality": "Brighton",
+   "postcode": "BN1 6DE",
+   "phone": "01273 055409",
+   "email": "info@switched-sussex.co.uk"
+  },
+  {
+   "business_name": "The Electrical Company (Brighton) Ltd",
+   "location": "brighton",
+   "street_address": "33 Tarner Road",
+   "locality": "Brighton",
+   "postcode": "BN2 9QT",
+   "phone": "07949 577964",
+   "email": "info@tecbrighton.co.uk"
+  },
+  {
+   "business_name": "Voltage and Co (Sussex) Ltd T/A Voltage & Co",
+   "location": "brighton",
+   "street_address": "Suite 3, 25b Upper Hamilton Road",
+   "locality": "Brighton",
+   "postcode": "BN1 5DF",
+   "phone": "01273 917916",
+   "email": null
+  },
+  {
+   "business_name": "Ashton Electrical Bristol Ltd",
+   "location": "bristol",
+   "street_address": "162 Raleigh Road",
+   "locality": "Bristol",
+   "postcode": "BS3 2AJ",
+   "phone": "07831 281037",
+   "email": "enq@ashtonelectrical.com"
+  },
+  {
+   "business_name": "Beaver Electrical Ltd",
+   "location": "bristol",
+   "street_address": "48 North Street, Bedminster",
+   "locality": "Bristol",
+   "postcode": "BS3 1HW",
+   "phone": "07990 766644",
+   "email": "neil@beaverelectrical.co.uk"
+  },
+  {
+   "business_name": "Comera Power Limited",
+   "location": "bristol",
+   "street_address": "Origin Workspace, 40 Berkley Square",
+   "locality": "Bristol",
+   "postcode": "BS8 1HP",
+   "phone": "01179 718121",
+   "email": "support@comeragroup.co.uk"
+  },
+  {
+   "business_name": "Peregrine Services (Bristol) Ltd",
+   "location": "bristol",
+   "street_address": "145-147 East Street",
+   "locality": "Bristol",
+   "postcode": "BS3 4EJ",
+   "phone": "07969 509232",
+   "email": "hello@peregrineservices.co.uk"
+  },
+  {
+   "business_name": "Solar Sun and Air Limited",
+   "location": "bristol",
+   "street_address": "Unit 5, Victoria Grove, Bedminster",
+   "locality": "Bristol",
+   "postcode": "BS3 4AN",
+   "phone": "07879 492163",
+   "email": "info@solarsunair.co.uk"
+  },
+  {
+   "business_name": "TFP Ltd T/A TFP Electrical Fire and Security",
+   "location": "bristol",
+   "street_address": "Armada House, Telephone Avenue",
+   "locality": "Bristol",
+   "postcode": "BS1 4BQ",
+   "phone": "07872 463424",
+   "email": "glen@tfpelectrical.co.uk"
+  },
+  {
+   "business_name": "Eco Car Charging Solutions Ltd",
+   "location": "bury",
+   "street_address": "18 Throstle Grove, Bury",
+   "locality": "Lancashire",
+   "postcode": "BL8 1EB",
+   "phone": "01613 596977",
+   "email": "enquiries@ecocarchargingsolutions.co.uk"
+  },
+  {
+   "business_name": "Lakeside Mechanical & Electrical Services Ltd",
+   "location": "bury",
+   "street_address": "Tower House, 269 Walmersley Road",
+   "locality": "Bury",
+   "postcode": "BL9 6NX",
+   "phone": "07790 554153",
+   "email": "anthony@lakeside-services.com"
+  },
+  {
+   "business_name": "Lee Butterworth",
+   "location": "bury",
+   "street_address": "3 Hazlewood Drive, Limefield",
+   "locality": "Bury St Edmunds",
+   "postcode": "BL9 6QH",
+   "phone": "07711 718577",
+   "email": "leebutterworth@me.com"
+  },
+  {
+   "business_name": "Performance Electrical Ltd",
+   "location": "bury",
+   "street_address": "123 Radcliffe Road, Bury",
+   "locality": "Lancashire",
+   "postcode": "BL9 9LD",
+   "phone": "01617 973476",
+   "email": "joel.schofield@performanceelectrical.co.uk"
+  },
+  {
+   "business_name": "Peter Edge Electrical Limited",
+   "location": "bury",
+   "street_address": "305 Brandlesholme Road",
+   "locality": "Bury",
+   "postcode": "BL8 1EY",
+   "phone": "07831 292418",
+   "email": "pete@edgeelectrical.f9.co.uk"
+  },
+  {
+   "business_name": "Alex Hillman",
+   "location": "cardiff",
+   "street_address": "71 Henke Court,Atlantic Wharf",
+   "locality": "Cardiff Bay",
+   "postcode": "CF10 4EB",
+   "phone": "07541 243690",
+   "email": "alexhillman@icloud.com"
+  },
+  {
+   "business_name": "Amser Building Services Ltd",
+   "location": "cardiff",
+   "street_address": "Unit 3 Lewis Court, Portmanmoor Road",
+   "locality": "Cardiff",
+   "postcode": "CF24 5HQ",
+   "phone": "02920 499639",
+   "email": "wayne@amser.co.uk"
+  },
+  {
+   "business_name": "Be Assured Electrical",
+   "location": "cardiff",
+   "street_address": "Sophia House, 28 Cathedral Rd",
+   "locality": "Cardiff",
+   "postcode": "CF11 9LJ",
+   "phone": "07885 285506",
+   "email": "peter@beassuredelectrical.com"
+  },
+  {
+   "business_name": "EVChargeandGo Ltd t/a Urban Evolution",
+   "location": "cardiff",
+   "street_address": "Trafalgar House, Fitzalan Place, Cardiff",
+   "locality": "Wales",
+   "postcode": "CF24 0ED",
+   "phone": "0330 043 2911",
+   "email": "energy@urbanevolution.io"
+  },
+  {
+   "business_name": "FSE Group LTD",
+   "location": "cardiff",
+   "street_address": "Office 29a, 13/14 Neptune Court, Vanguard Way",
+   "locality": "Cardiff",
+   "postcode": "CF24 5PJ",
+   "phone": "07713 587981",
+   "email": "info@fsegroupltd.co.uk"
+  },
+  {
+   "business_name": "Plug (EV Stations) Ltd t/a Plug Charging",
+   "location": "cardiff",
+   "street_address": "The Maltings , East Tyndall Street",
+   "locality": "Cardiff",
+   "postcode": "CF24 5EA",
+   "phone": "03302 368567",
+   "email": "carl.morris@plugcharging.co.uk"
+  },
+  {
+   "business_name": "Treganna Electrical Ltd",
+   "location": "cardiff",
+   "street_address": "15 Turberville Place",
+   "locality": "Cardiff",
+   "postcode": "CF11 9NX",
+   "phone": "07980 208535",
+   "email": "chris@tregannaelectrical.co.uk"
+  },
+  {
+   "business_name": "Urban Solar Ltd",
+   "location": "cardiff",
+   "street_address": "25 Bangor Street",
+   "locality": "Cardiff",
+   "postcode": "CF24 3LQ",
+   "phone": "03452 658315",
+   "email": "info@urbansolar.org.uk"
+  },
+  {
+   "business_name": "Arrow Electrical & Plumbing Services Ltd",
+   "location": "chester",
+   "street_address": "Deva Court, Lightfoot Street, Hoole, Chester",
+   "locality": "Cheshire",
+   "postcode": "CH2 3AD",
+   "phone": "01244 830419",
+   "email": "nick@arrowelec.co.uk"
+  },
+  {
+   "business_name": "Bundy's Electrical & Safety Testing Ltd T/A BEST Ltd",
+   "location": "chester",
+   "street_address": "5 Beeston Pathway, Handbridge",
+   "locality": "Chester",
+   "postcode": "CH4 7EG",
+   "phone": "03333 051576",
+   "email": "david@bundys.co.uk"
+  },
+  {
+   "business_name": "Carter Electrical Contracting",
+   "location": "chester",
+   "street_address": "16 Sibell Street",
+   "locality": "Chester",
+   "postcode": "CH1 3BU",
+   "phone": "07843 672120",
+   "email": "carterelec@outlook.com"
+  },
+  {
+   "business_name": "CBS Electrical",
+   "location": "chester",
+   "street_address": "5 Rothesay Road, Curzon Park",
+   "locality": "Chester",
+   "postcode": "CH4 8AJ",
+   "phone": "07973 654680",
+   "email": null
+  },
+  {
+   "business_name": "EVCC Ltd",
+   "location": "chester",
+   "street_address": "27 Queens Road, Vicars Cross",
+   "locality": "Chester",
+   "postcode": "CH3 5HB",
+   "phone": "07772514073",
+   "email": "evccltd@gmail.com"
+  },
+  {
+   "business_name": "ON-EV",
+   "location": "chester",
+   "street_address": "84 The Quarter, Egerton Street",
+   "locality": "Chester",
+   "postcode": "CH1 3NP",
+   "phone": "07392 932200",
+   "email": "info@on-ev.com"
+  },
+  {
+   "business_name": "Alexander Zane Projects Ltd t/a Forward Energy",
+   "location": "coventry",
+   "street_address": "Paxton Lodge, London Road",
+   "locality": "Coventry",
+   "postcode": "CV1 2JT",
+   "phone": "02476 011279",
+   "email": "hello@forward.energy"
+  },
+  {
+   "business_name": "Aurum Electrical Installations Ltd",
+   "location": "coventry",
+   "street_address": "25 Bardley Drive, Daimler Green",
+   "locality": "Coventry",
+   "postcode": "CV6 3LD",
+   "phone": "07914 064844",
+   "email": "enquiries@aurum-electrical.co.uk"
+  },
+  {
+   "business_name": "Builtelect Ltd",
+   "location": "coventry",
+   "street_address": "100 Cheveral Avenue",
+   "locality": "Coventry",
+   "postcode": "CV6 3EF",
+   "phone": "07861 717976",
+   "email": "builtelec@outlook.com"
+  },
+  {
+   "business_name": "Cadi Electrics Ltd",
+   "location": "coventry",
+   "street_address": "1st Cash's Buisness Centre, 228 Widdrington Road",
+   "locality": "Coventry",
+   "postcode": "CV1 4PB",
+   "phone": "07598 407477",
+   "email": "info@cadielectricsltd.com"
+  },
+  {
+   "business_name": "Coventry Electrical Solutions Ltd",
+   "location": "coventry",
+   "street_address": "42 Park Road",
+   "locality": "Coventry",
+   "postcode": "CV1 2LD",
+   "phone": "07821 897567",
+   "email": "neilally70@gmail.com"
+  },
+  {
+   "business_name": "Gibson Consultancy Ltd T/A GC Contracts",
+   "location": "coventry",
+   "street_address": "Unit 6 Building 16,Bilton Industrial Estate, Humber Ave",
+   "locality": "Coventry",
+   "postcode": "CV3 1JL",
+   "phone": "02476 636494",
+   "email": "az@gccontractsltd.com"
+  },
+  {
+   "business_name": "Kainoxe Heating & Electrics Ltd",
+   "location": "coventry",
+   "street_address": "Unit 1 Electric Wharf",
+   "locality": "Coventry",
+   "postcode": "CV1 4JL",
+   "phone": "07780 114781",
+   "email": "info@kainoxe.co.uk"
+  },
+  {
+   "business_name": "Sentridge Ltd",
+   "location": "coventry",
+   "street_address": "45 Hood Street, Coventry",
+   "locality": "West Midlands",
+   "postcode": "CV1 5PX",
+   "phone": "07866 986640",
+   "email": "glen.hickman@sentridge.com"
+  },
+  {
+   "business_name": "Absolute Electrix",
+   "location": "crewe",
+   "street_address": "6 Yates Street",
+   "locality": "Crewe",
+   "postcode": "CW2 7LY",
+   "phone": "07470 417350",
+   "email": "absoluteelectrix@gmail.com"
+  },
+  {
+   "business_name": "CG Electrics Ltd",
+   "location": "crewe",
+   "street_address": "121 Valley Road",
+   "locality": "Crewe",
+   "postcode": "CW2 8LL",
+   "phone": "07734 422775",
+   "email": "cgelectricsltd@aol.com"
+  },
+  {
+   "business_name": "Disc Electrical Ltd",
+   "location": "crewe",
+   "street_address": "Unit 10 , Wistaston Road Business Centre, Wistaston Road",
+   "locality": "Crewe",
+   "postcode": "CW2 7RP",
+   "phone": "01270 666633",
+   "email": null
+  },
+  {
+   "business_name": "Haspell and Co Property Services Ltd T/A Powerhive Electrical",
+   "location": "crewe",
+   "street_address": "6 Bramhall Road",
+   "locality": "Crewe",
+   "postcode": "CW2 8PT",
+   "phone": "07935 845029",
+   "email": "powerhiveelectrical@gmail.com"
+  },
+  {
+   "business_name": "Heatshield Ltd",
+   "location": "crewe",
+   "street_address": "9 Mallard Court",
+   "locality": "Crewe",
+   "postcode": "CW1 6ZQ",
+   "phone": "01270446318",
+   "email": "customercare@heatshieldltd.co.uk"
+  },
+  {
+   "business_name": "Phase 2 Phase Electrical Contractors Ltd",
+   "location": "crewe",
+   "street_address": "23 Kingsway",
+   "locality": "Crewe",
+   "postcode": "CW2 7NB",
+   "phone": "01270 444003",
+   "email": "office@phase2phaseelectrical.com"
+  },
+  {
+   "business_name": "Qmerit Electrification UK Limited",
+   "location": "crewe",
+   "street_address": "A04. Weston Centre, Weston Road",
+   "locality": "Crewe",
+   "postcode": "CW1 6FL",
+   "phone": "08000 584614",
+   "email": "finance@qmerit.uk"
+  },
+  {
+   "business_name": "R A WRIGHT Ltd",
+   "location": "crewe",
+   "street_address": "314 Sydney Road",
+   "locality": "Crewe",
+   "postcode": "CW1 5LU",
+   "phone": "07721 423614",
+   "email": "rawrightltd@hotmail.co.uk"
+  },
+  {
+   "business_name": "All Star Electrical Solutions",
+   "location": "edinburgh",
+   "street_address": "23 Union Street",
+   "locality": "Edinburgh",
+   "postcode": "EH1 3LR",
+   "phone": "07883 502929",
+   "email": "service@allstarelectric.co.uk"
+  },
+  {
+   "business_name": "Cablecom Electrical Ltd",
+   "location": "edinburgh",
+   "street_address": "8 Abbeyhill",
+   "locality": "Edinburgh",
+   "postcode": "EH8 8EE",
+   "phone": "01316 569151",
+   "email": "mail@cablecom-ltd.com"
+  },
+  {
+   "business_name": "Elco Electrical & Technical Services",
+   "location": "edinburgh",
+   "street_address": "26 Findlay Grove",
+   "locality": "Edinburgh",
+   "postcode": "EH7 6HF",
+   "phone": "07809 645346",
+   "email": "elco.ets@gmail.com"
+  },
+  {
+   "business_name": "Harkins & Vickers Electrical Solutions Ltd",
+   "location": "edinburgh",
+   "street_address": "1 Rodney Street",
+   "locality": "Edinburgh",
+   "postcode": "EH7 4EN",
+   "phone": "01312 253205",
+   "email": "edinburgh@harkinsandvickers.co.uk"
+  },
+  {
+   "business_name": "Ideal Electrical Solutions (UK) Ltd",
+   "location": "edinburgh",
+   "street_address": "4-5 Parsons Green Terrace",
+   "locality": "Edinburgh",
+   "postcode": "EH8 7AN",
+   "phone": "01312 582750",
+   "email": "info@ies-edinburgh.co.uk"
+  },
+  {
+   "business_name": "Lumen Electrical Services",
+   "location": "edinburgh",
+   "street_address": "31/2 Royal Park Terrace",
+   "locality": "Edinburgh",
+   "postcode": "EH8 8JA",
+   "phone": "01314 609699",
+   "email": "contact@lumen-electrical.com"
+  },
+  {
+   "business_name": "Nicholson Brothers (Electrical Contractors) Ltd",
+   "location": "edinburgh",
+   "street_address": "6A Grange Road",
+   "locality": "Edinburgh",
+   "postcode": "EH9 1UH",
+   "phone": "01316 670281",
+   "email": "nb@nicholsonbros.com"
+  },
+  {
+   "business_name": "PB Services (Electrical Contractors)",
+   "location": "edinburgh",
+   "street_address": "5 South Charlotte Street",
+   "locality": "Edinburgh",
+   "postcode": "EH2 4AN",
+   "phone": "08009 993219",
+   "email": "info@pb.services"
+  },
+  {
+   "business_name": "Distrikt Energy Limited",
+   "location": "glasgow",
+   "street_address": "272 Bath Street",
+   "locality": "Glasgow",
+   "postcode": "G2 4JR",
+   "phone": "01413 740508",
+   "email": "steven@distriktenergy.co.uk"
+  },
+  {
+   "business_name": "EVC Scotland Ltd",
+   "location": "glasgow",
+   "street_address": "94 Hope Street",
+   "locality": "Glasgow",
+   "postcode": "G2 6PH",
+   "phone": "07921 452630",
+   "email": "info@evcscotland.com"
+  },
+  {
+   "business_name": "M3 Electrical Ltd T/A M3 Electrical",
+   "location": "glasgow",
+   "street_address": "261 Alexandra Parade, Unit 1",
+   "locality": "Glasgow",
+   "postcode": "G31 3AD",
+   "phone": "01414 590309",
+   "email": "hello@m3-electrical.co.uk"
+  },
+  {
+   "business_name": "North Star Electric Ltd",
+   "location": "glasgow",
+   "street_address": "3 Foundry Street",
+   "locality": "Glasgow",
+   "postcode": "G21 4PR",
+   "phone": "01412 375626",
+   "email": "accounts@northstarelectric.co.uk"
+  },
+  {
+   "business_name": "RWL ELECTRICAL LTD",
+   "location": "glasgow",
+   "street_address": "Clyde Offices, 2nd Floor, 48 West George Street",
+   "locality": "Glasgow",
+   "postcode": "G2 1BP",
+   "phone": "07931 635680",
+   "email": "rwlelectrical1@gmail.com"
+  },
+  {
+   "business_name": "ScottishPower Energy Retail Limited",
+   "location": "glasgow",
+   "street_address": "320 St Vincent Street",
+   "locality": "Glasgow",
+   "postcode": "G2 5AD",
+   "phone": "08000 270004",
+   "email": "public-ev@scottishpower.com"
+  },
+  {
+   "business_name": "TNC Electrical Services Ltd",
+   "location": "glasgow",
+   "street_address": "Block 1, Unit 2, 7 Arron Place, London Road Industrial Estate",
+   "locality": "Glasgow",
+   "postcode": "G40 3NY",
+   "phone": "01415 547355",
+   "email": "barry.thomson@tncelectrical.com"
+  },
+  {
+   "business_name": "16T Electrical Services",
+   "location": "huddersfield",
+   "street_address": "74 Meltham Road",
+   "locality": "Huddersfield",
+   "postcode": "HD1 3UP",
+   "phone": "07934 740417",
+   "email": "16telectrical@gmail.com"
+  },
+  {
+   "business_name": "Armitage Electrical Engineers Yorkshire t/a AEE Yorkshire",
+   "location": "huddersfield",
+   "street_address": "48 Kirkgate",
+   "locality": "Huddersfield",
+   "postcode": "HD1 6QE",
+   "phone": "07702 410231",
+   "email": "jason@aeeyorkshire.co.uk"
+  },
+  {
+   "business_name": "Atlantis Facilities Ltd T/A Huddersfield Electrical Contractors",
+   "location": "huddersfield",
+   "street_address": "Unit 5 Aspley Buisness Park",
+   "locality": "Huddersfield",
+   "postcode": "HD1 6RX",
+   "phone": "01484 421269",
+   "email": "oliver@hec-ltd.com"
+  },
+  {
+   "business_name": "Genco Electrical Projects Ltd",
+   "location": "huddersfield",
+   "street_address": "9 Colne Road",
+   "locality": "Huddersfield",
+   "postcode": "HD1 3ER",
+   "phone": "07776 451759",
+   "email": "john.pearson@gencoelectrical.co.uk"
+  },
+  {
+   "business_name": "JMES Services",
+   "location": "huddersfield",
+   "street_address": "6 Grange Bank Close",
+   "locality": "Huddersfield",
+   "postcode": "HD5 9NR",
+   "phone": "07850 646167",
+   "email": "levis219@outlook.com"
+  },
+  {
+   "business_name": "Kirkburton Electrical Ltd",
+   "location": "huddersfield",
+   "street_address": "Unit 8, Silver Court",
+   "locality": "Huddersfield",
+   "postcode": "HD5 9AG",
+   "phone": "07590 837187",
+   "email": "info@kirkburtonelectricals.co.uk"
+  },
+  {
+   "business_name": "Metro Eco Group Ltd t/a Metro Eco",
+   "location": "huddersfield",
+   "street_address": "4 Abb Sreet",
+   "locality": "Huddersfield",
+   "postcode": "HD1 4PA",
+   "phone": "01484 456456",
+   "email": "orders@metroeco.co.uk"
+  },
+  {
+   "business_name": "Res Electrics Ltd",
+   "location": "huddersfield",
+   "street_address": "114a Church Lane, Moldgreen",
+   "locality": "Huddersfield",
+   "postcode": "HD5 9DU",
+   "phone": "07771 003293",
+   "email": "info@res-electrics.uk"
+  },
+  {
+   "business_name": "A Bravo Electrical LTD",
+   "location": "leeds",
+   "street_address": "78 Scott Hall Road",
+   "locality": "Leeds",
+   "postcode": "LS7 3JE",
+   "phone": "07727 734042",
+   "email": "info@abravo-electrical.com"
+  },
+  {
+   "business_name": "British Gas Services LTD",
+   "location": "leeds",
+   "street_address": "New Bridge House Leeds City Office Park",
+   "locality": "Leeds",
+   "postcode": "LS11 5BD",
+   "phone": "07769 547359",
+   "email": "olev@britishgas.co.uk"
+  },
+  {
+   "business_name": "Cosmic (EVC) Ltd T/A Cosmic Charging",
+   "location": "leeds",
+   "street_address": "Castleton Mill, Castleton Close",
+   "locality": "Leeds",
+   "postcode": "LS12 2DS",
+   "phone": "07435 967859",
+   "email": "james.stevens@cosmic-charging.com"
+  },
+  {
+   "business_name": "Devitech Ltd",
+   "location": "leeds",
+   "street_address": "Leeming Building, Ludgate Hill",
+   "locality": "Leeds",
+   "postcode": "LS2 7HZ",
+   "phone": "08455 651314",
+   "email": "projects@devitech.co.uk"
+  },
+  {
+   "business_name": "Engie Power Ltd",
+   "location": "leeds",
+   "street_address": "No. 1 Leeds, 26 Whitehall Road",
+   "locality": "Leeds",
+   "postcode": "LS12 1BE",
+   "phone": null,
+   "email": "ev@engie.com"
+  },
+  {
+   "business_name": "Smartwired Electrical Contractor Limited",
+   "location": "leeds",
+   "street_address": "Mabgate Business Centre, 93-99 Mabgate",
+   "locality": "Leeds",
+   "postcode": "LS9 7DR",
+   "phone": "07463 584628",
+   "email": "hello@smartwiredelectrical.co.uk"
+  },
+  {
+   "business_name": "Zest Eco Ltd",
+   "location": "leeds",
+   "street_address": "Bond House, The Bourse, Boar Lane",
+   "locality": "Leeds",
+   "postcode": "LS1 5EN",
+   "phone": "03335 776760",
+   "email": "hello@zest.uk.com"
+  },
+  {
+   "business_name": "Bright Electrical Engineering Ltd",
+   "location": "leicester",
+   "street_address": "Unit 3, 3-7 Woodbridge Road",
+   "locality": "Leicester",
+   "postcode": "LE4 7RH",
+   "phone": "01165 074555",
+   "email": "info@brightelectricals.co.uk"
+  },
+  {
+   "business_name": "CRS Electrical Contractors Ltd",
+   "location": "leicester",
+   "street_address": "11A Stanley Road",
+   "locality": "Leicester",
+   "postcode": "LE2 1RG",
+   "phone": "01162 625788",
+   "email": "info@crselectrical.uk"
+  },
+  {
+   "business_name": "CRS Gas and Heating Ltd T/A CRS Electrical",
+   "location": "leicester",
+   "street_address": "11a Stanley Road",
+   "locality": "Leicester",
+   "postcode": "LE2 1RG",
+   "phone": "07815 428789",
+   "email": "steve@crselectrical.uk"
+  },
+  {
+   "business_name": "KGL Electrical & Suppliers Ltd",
+   "location": "leicester",
+   "street_address": "37 New Bond Street",
+   "locality": "Leicester",
+   "postcode": "LE1 4RQ",
+   "phone": "01162624203",
+   "email": "kgl.electrical@gmail.com"
+  },
+  {
+   "business_name": "OWNZ Maintenance Ltd",
+   "location": "leicester",
+   "street_address": "193 Charles Street",
+   "locality": "Leicester",
+   "postcode": "LE1 1LA",
+   "phone": "03301 110786",
+   "email": "info@ownzmaintenance.com"
+  },
+  {
+   "business_name": "Zap Electrics T/A ZAP Electrical Ltd",
+   "location": "leicester",
+   "street_address": "10 Braybrooke Road",
+   "locality": "Leicester",
+   "postcode": "LE4 9BJ",
+   "phone": "07749 446935",
+   "email": "info@zapelectrics.co.uk"
+  },
+  {
+   "business_name": "Avrenim Group Ltd T/A Avrenim Energy Services Ltd",
+   "location": "liverpool",
+   "street_address": "Estates House, 50A Prescot Street",
+   "locality": "Liverpool",
+   "postcode": "L7 8YE",
+   "phone": "07540 732665",
+   "email": "matt.biggs@avrenimenergyservices.co.uk"
+  },
+  {
+   "business_name": "BlueApe Limited t/a Blue Ape Renewables",
+   "location": "liverpool",
+   "street_address": "1 Mann Island, 3rd Floor",
+   "locality": "Liverpool",
+   "postcode": "L3 1BP",
+   "phone": "01514 524085",
+   "email": "info@blueaperenewables.co.uk"
+  },
+  {
+   "business_name": "COMPLETE HOME ENERGY SOLUTIONS LTD",
+   "location": "liverpool",
+   "street_address": "Level One, Basecamp Jamaica Street, Cardiff Way",
+   "locality": "Liverpool",
+   "postcode": "L1 0AH",
+   "phone": "08005 999890",
+   "email": "john@completehomeenergysolutionsltd.co.uk"
+  },
+  {
+   "business_name": "Daniel Paul Electrical Ltd",
+   "location": "liverpool",
+   "street_address": "Hanover House, Hanover Street",
+   "locality": "Liverpool",
+   "postcode": "L1 3DZ",
+   "phone": null,
+   "email": "info@danielpaulelectrical.com"
+  },
+  {
+   "business_name": "Glyn Nuttall Ltd",
+   "location": "liverpool",
+   "street_address": "Chatham House, 15/17 Chatham P",
+   "locality": "Chatham Place",
+   "postcode": "L7 3HD",
+   "phone": "01517 097709",
+   "email": "info@glynnuttall.co.uk"
+  },
+  {
+   "business_name": "Westfield Electrical NW LTD",
+   "location": "liverpool",
+   "street_address": "Unit 212 Vanilla Factory",
+   "locality": "Liverpool",
+   "postcode": "L1 4AR",
+   "phone": "01512 282281",
+   "email": "steven@westfieldelecnw.com"
+  },
+  {
+   "business_name": "Zinnia Electrical Limited",
+   "location": "liverpool",
+   "street_address": "Hanover Buildings, 11-13 Hanover Street, Liverpool",
+   "locality": "Merseyside",
+   "postcode": "L1 3DN",
+   "phone": "01925 649597",
+   "email": "admin@zinniaelectrical.com"
+  },
+  {
+   "business_name": "Champion Electrics Ltd",
+   "location": "london",
+   "street_address": "71-75 Shelton Street, Covent Garden",
+   "locality": "London",
+   "postcode": "WC2H 9JQ",
+   "phone": null,
+   "email": "championelectricsltd@gmail.com"
+  },
+  {
+   "business_name": "Connected Kerb",
+   "location": "london",
+   "street_address": "51-52 Firth Street",
+   "locality": "London",
+   "postcode": "W1D 4SH",
+   "phone": null,
+   "email": "andreea.clinci@connectedkerb.com"
+  },
+  {
+   "business_name": "GEM ENVIRONMENTAL BUILDING SERVICES LIMITED",
+   "location": "london",
+   "street_address": "130 Shafstesbury Avenue, 2nd Floor",
+   "locality": "London",
+   "postcode": "W1D 5EU",
+   "phone": null,
+   "email": "artur.rewolt@gemebs.com"
+  },
+  {
+   "business_name": "Greenewables Ltd T/A Greenewables, Community EV Charging, EV for Schools",
+   "location": "london",
+   "street_address": "Bray House, Duke of York Street",
+   "locality": "London",
+   "postcode": "SW1Y 6JX",
+   "phone": "07858 510674",
+   "email": "doyle@yemaya.group"
+  },
+  {
+   "business_name": "Ohme Operations UK Limited",
+   "location": "london",
+   "street_address": "7th Floor, Wellington House, 125-130 Strand",
+   "locality": "London",
+   "postcode": "WC2R 0AP",
+   "phone": "02033 751586",
+   "email": "bradley.turk@ohme-ev.com"
+  },
+  {
+   "business_name": "Qvanta Limited T/A Qvanta",
+   "location": "london",
+   "street_address": "71-75 Shelton Street, Covent Gardens",
+   "locality": "London",
+   "postcode": "WC2H 9JQ",
+   "phone": null,
+   "email": "sandeep.patel@qvanta.uk"
+  },
+  {
+   "business_name": "StayWired Ltd",
+   "location": "london",
+   "street_address": "71-75 Shelton Street",
+   "locality": "London",
+   "postcode": "WC2H 9JQ",
+   "phone": "07827 045037",
+   "email": "info@stay-wired.co.uk"
+  },
+  {
+   "business_name": "The Digital Asset Group Ltd T/A Stay Charge",
+   "location": "london",
+   "street_address": "71-75 Shelton Street, Covent Gardens",
+   "locality": "London",
+   "postcode": "WC2H 9JQ",
+   "phone": null,
+   "email": "david@staycharging.org"
+  },
+  {
+   "business_name": "AJH Electrical Services Ltd",
+   "location": "macclesfield",
+   "street_address": "124 Waterways Avenue",
+   "locality": "Macclesfield",
+   "postcode": "SK11 7NF",
+   "phone": "07775 434382",
+   "email": "anthony@ajhelectricalservices.com"
+  },
+  {
+   "business_name": "Alex Holbrow Electrical Limited T/A Alex Holbrow Electrical",
+   "location": "macclesfield",
+   "street_address": "49 Arlington Drive",
+   "locality": "Macclesfield",
+   "postcode": "SK11 8QL",
+   "phone": "07966 068431",
+   "email": "info@alexholbrowelectrical.co.uk"
+  },
+  {
+   "business_name": "Ariva Renewables Ltd",
+   "location": "macclesfield",
+   "street_address": "Unit 1 Fence Avenue Trading Estate, Fence Avenue",
+   "locality": "Macclesfield",
+   "postcode": "SK10 1LT",
+   "phone": "01625 925615",
+   "email": "jon@ariva-renewables.co.uk"
+  },
+  {
+   "business_name": "Beaden Electrical Ltd",
+   "location": "macclesfield",
+   "street_address": "Unit 2 Withyfold Trading Estate, Macclesfield",
+   "locality": "Cheshire",
+   "postcode": "SK10 2ZR",
+   "phone": "01625267122",
+   "email": "andrew@beadenelectrical.co.uk"
+  },
+  {
+   "business_name": "K Allman Electrics Limited",
+   "location": "macclesfield",
+   "street_address": "3 Roe Street",
+   "locality": "Macclesfield",
+   "postcode": "SK11 6UT",
+   "phone": "01625 614885",
+   "email": "sarah_barton@btconnect.com"
+  },
+  {
+   "business_name": "Meel Group Building Services",
+   "location": "macclesfield",
+   "street_address": "Snape Road",
+   "locality": "Macclesfield",
+   "postcode": "SK10 2NZ",
+   "phone": "03300 567194",
+   "email": "buildingservices@meelgroup.co.uk"
+  },
+  {
+   "business_name": "R.J.S Electrical Services",
+   "location": "macclesfield",
+   "street_address": "1 Cambridge Avenue",
+   "locality": "Macclesfield",
+   "postcode": "SK11 8JN",
+   "phone": "07890 455605",
+   "email": "info.rjselectrical@gmail.com"
+  },
+  {
+   "business_name": "81 Tech Ltd",
+   "location": "manchester",
+   "street_address": "Piccadilly Business Centre, Unit C Aldow Enterprise Park",
+   "locality": "Manchester",
+   "postcode": "M12 6AE",
+   "phone": "07852 536234",
+   "email": "sales@81tech.co.uk"
+  },
+  {
+   "business_name": "Active Constructions Ltd",
+   "location": "manchester",
+   "street_address": "44 Higher Ardwick, Ardwick",
+   "locality": "Manchester",
+   "postcode": "M12 6DA",
+   "phone": "01613079334",
+   "email": "activeconstructionsltd@gmail.com"
+  },
+  {
+   "business_name": "AMS Solutions (UK) Ltd t/a AMS Solutions",
+   "location": "manchester",
+   "street_address": "International House, 61 Mosley St",
+   "locality": "Manchester",
+   "postcode": "M2 3HZ",
+   "phone": "01204 216955",
+   "email": null
+  },
+  {
+   "business_name": "CNF Electrical Limited",
+   "location": "manchester",
+   "street_address": "2 Dragonfly Close",
+   "locality": "Salford",
+   "postcode": "M7 1BH",
+   "phone": "07498 095155",
+   "email": "electrical.cnf@gmail.com"
+  },
+  {
+   "business_name": "Cogent Energy Ltd",
+   "location": "manchester",
+   "street_address": "Boulton House, 17-21 Chorlton Street",
+   "locality": "Manchester",
+   "postcode": "M1 3HY",
+   "phone": "01612 416930",
+   "email": "info@cogent.energy"
+  },
+  {
+   "business_name": "Evergreen Energy Ltd T/A Apartment Block Charging",
+   "location": "manchester",
+   "street_address": "The Edge Business Centre, Clowes Street",
+   "locality": "Manchester",
+   "postcode": "M3 5NA",
+   "phone": "07581 275011",
+   "email": "info@apartmentblockcharging.com"
+  },
+  {
+   "business_name": "ISE Electrical Ltd T/A ISE Electrical",
+   "location": "manchester",
+   "street_address": "61 Mosley Street",
+   "locality": "Manchester",
+   "postcode": "M2 3HZ",
+   "phone": "07986 777986",
+   "email": "iseelectricalltd@gmail.com"
+  },
+  {
+   "business_name": "Plug Me In",
+   "location": "manchester",
+   "street_address": "5th Floor 1 Marsden Street",
+   "locality": "Manchester",
+   "postcode": "M2 1HW",
+   "phone": "07773 221487",
+   "email": "ben.etherington@plugmein-ev.co.uk"
+  },
+  {
+   "business_name": "Ace Installations Ltd",
+   "location": "nottingham",
+   "street_address": "57 Conway Close",
+   "locality": "Nottingham",
+   "postcode": "NG3 4FH",
+   "phone": "07866 180550",
+   "email": "ace.installations.rm@gmail.com"
+  },
+  {
+   "business_name": "C M Ward Ltd",
+   "location": "nottingham",
+   "street_address": "Unit 1 Meadow Court",
+   "locality": "Nottingham",
+   "postcode": "NG2 3GS",
+   "phone": "01156 976003",
+   "email": "callum@cmwardltd.co.uk"
+  },
+  {
+   "business_name": "Heat Light and Power (UK) Limited",
+   "location": "nottingham",
+   "street_address": "Suite 101, 1 Hanley Street",
+   "locality": "Nottingham",
+   "postcode": "NG1 5BL",
+   "phone": "07817 679504",
+   "email": "office@heatlightandpower.co.uk"
+  },
+  {
+   "business_name": "Nottingham City Council",
+   "location": "nottingham",
+   "street_address": "Station Street",
+   "locality": "Nottingham",
+   "postcode": "NG2 3AJ",
+   "phone": "01158 763636",
+   "email": null
+  },
+  {
+   "business_name": "NRCS Building Services T/A NRCS",
+   "location": "nottingham",
+   "street_address": "18-26 Hendon Rise",
+   "locality": "Nottingham",
+   "postcode": "NG3 3AN",
+   "phone": "07803 378592",
+   "email": "info@nrcselectrical.co.uk"
+  },
+  {
+   "business_name": "Poweri Services Ltd",
+   "location": "nottingham",
+   "street_address": "Poweri Service Ltd, Castle Cavendish Enterprise Centre",
+   "locality": "Nottingham",
+   "postcode": "NG7 3EN",
+   "phone": "01157 270929",
+   "email": "info@poweri.co.uk"
+  },
+  {
+   "business_name": "Siemens Energy Limited T/A Siemens Managed Applications and Services",
+   "location": "nottingham",
+   "street_address": "Central Park, 2 Lenton Lane",
+   "locality": "Nottingham",
+   "postcode": "NG7 2NR",
+   "phone": "01159 066000",
+   "email": "mark.hydes@siemens.com"
+  },
+  {
+   "business_name": "Core Electrics Ltd T/A Core Electrics",
+   "location": "oldham",
+   "street_address": "77 Alfred Street",
+   "locality": "Oldham",
+   "postcode": "OL9 7EG",
+   "phone": "07791 555559",
+   "email": "core.electricsltd@gmail.com"
+  },
+  {
+   "business_name": "Echo Engineering Solutions Ltd t/a Charge On Your Drive",
+   "location": "oldham",
+   "street_address": "Soho Works, Soho Street",
+   "locality": "Oldham",
+   "postcode": "OL4 2AD",
+   "phone": "01616 330362",
+   "email": "jack.burns@echo-es.co.uk"
+  },
+  {
+   "business_name": "Holly Tree Maintenance Ltd",
+   "location": "oldham",
+   "street_address": "Unit 8, Pennant Industrial Est, Pennant Street",
+   "locality": "Oldham",
+   "postcode": "OL1 3NP",
+   "phone": "01616 523838",
+   "email": "severitt@hollytreemaintenance.co.uk"
+  },
+  {
+   "business_name": "M B Electrical Services (NW) Ltd",
+   "location": "oldham",
+   "street_address": "10 Sidlaw Close, Copthorne Park",
+   "locality": "Oldham",
+   "postcode": "OL8 3WQ",
+   "phone": "01613 993854",
+   "email": "evse@mbelectricalservices.com"
+  },
+  {
+   "business_name": "North West Electrical Maintenance LTD",
+   "location": "oldham",
+   "street_address": "162 Manchester Road",
+   "locality": "Oldham",
+   "postcode": "OL9 7BL",
+   "phone": "07957 760543",
+   "email": "nwmaintenance@outlook.com"
+  },
+  {
+   "business_name": "Paul Niculae Electrical Contractor Ltd",
+   "location": "oldham",
+   "street_address": "4 Stanford Court, Porter Street",
+   "locality": "Oldham",
+   "postcode": "OL9 7QF",
+   "phone": "07885 827284",
+   "email": "paul4vs@icloud.com"
+  },
+  {
+   "business_name": "Paul's Plugs UK",
+   "location": "oldham",
+   "street_address": "82 Goddard Street",
+   "locality": "Oldham",
+   "postcode": "OL8 1LH",
+   "phone": "07961 026626",
+   "email": "paulsplugs2020@yahoo.co.uk"
+  },
+  {
+   "business_name": "ST Power Solutions Ltd",
+   "location": "oldham",
+   "street_address": "6 Stokton Park, Lees",
+   "locality": "Oldham",
+   "postcode": "OL4 3BG",
+   "phone": "07931 478325",
+   "email": "dannywalker.dw@gmail.com"
+  },
+  {
+   "business_name": "Valdecor",
+   "location": "oldham",
+   "street_address": "4 Perivale Drive",
+   "locality": "Oldham",
+   "postcode": "OL8 2JJ",
+   "phone": "07925 809319",
+   "email": "valdecoruk@gmail.com"
+  },
+  {
+   "business_name": "A. A. Arnold Ltd",
+   "location": "rochdale",
+   "street_address": "69-73 Oldham Road",
+   "locality": "Rochdale",
+   "postcode": "OL16 5QR",
+   "phone": "01706 646341",
+   "email": "sales@aaarnold.co.uk"
+  },
+  {
+   "business_name": "AME Services Ltd",
+   "location": "rochdale",
+   "street_address": "Unit 11, Alma Industrial Estate, Regent Street",
+   "locality": "Rochdale",
+   "postcode": "OL12 0HQ",
+   "phone": null,
+   "email": "dan.henshaw@ame-services.co.uk"
+  },
+  {
+   "business_name": "Harridge Electrical Contractors Ltd",
+   "location": "rochdale",
+   "street_address": "7 The Harridge, Shawclough",
+   "locality": "Rochdale",
+   "postcode": "OL12 7UX",
+   "phone": "07977 121522",
+   "email": "ian@harridgeelectrical.com"
+  },
+  {
+   "business_name": "Icon Fix Electrical Ltd",
+   "location": "rochdale",
+   "street_address": "11 Daventry Road, Rochdale",
+   "locality": "Lancashire",
+   "postcode": "OL11 2LN",
+   "phone": "07883 096488",
+   "email": "mshahzeb02@yahoo.com"
+  },
+  {
+   "business_name": "Jackson Jackson & Sons Limited",
+   "location": "rochdale",
+   "street_address": "Jackson House, Red Lane",
+   "locality": "Rochdale",
+   "postcode": "OL12 9DB",
+   "phone": "01706 861162",
+   "email": null
+  },
+  {
+   "business_name": "JB Electrics (Manchester)",
+   "location": "rochdale",
+   "street_address": "19 Oulderhill Drive",
+   "locality": "Manchester",
+   "postcode": "OL11 5LB",
+   "phone": "07872 620475",
+   "email": "jbelectrics21@hotmail.com"
+  },
+  {
+   "business_name": "KDPC Electrical LTD",
+   "location": "rochdale",
+   "street_address": "97 Newark Road",
+   "locality": "Rochdale",
+   "postcode": "OL12 0AU",
+   "phone": "07530 527392",
+   "email": "kdpcelectricalltd@gmail.com"
+  },
+  {
+   "business_name": "U&O Future Ltd",
+   "location": "rochdale",
+   "street_address": "Unit 1c Redbrook Mill, Bury Road",
+   "locality": "Rochdale",
+   "postcode": "OL11 4EE",
+   "phone": "07481 104056",
+   "email": "admin@uaofuture.co.uk"
+  },
+  {
+   "business_name": "BR Electrical Contractors Ltd",
+   "location": "southampton",
+   "street_address": "41 Harborough Road, Bedford Place",
+   "locality": "Southampton",
+   "postcode": "SO15 2FZ",
+   "phone": "07900 952637",
+   "email": "bradley@brelectrical.info"
+  },
+  {
+   "business_name": "G A Electrical Services (Mechanical & Electrical Contractors) Ltd",
+   "location": "southampton",
+   "street_address": "Unit 21, Longbrigde Industrial Park",
+   "locality": "Southampton",
+   "postcode": "SO14 3FL",
+   "phone": "02380 234556",
+   "email": "g.clarke@gaelectricalservices.com"
+  },
+  {
+   "business_name": "Powerplus (GB) Ltd",
+   "location": "southampton",
+   "street_address": "2 Cable Street",
+   "locality": "Southampton",
+   "postcode": "SO14 5AE",
+   "phone": "02380 233000",
+   "email": null
+  },
+  {
+   "business_name": "Powerplus Communications Ltd",
+   "location": "southampton",
+   "street_address": "Unit 2 Glenmore Center, Cable Street",
+   "locality": "Southampton",
+   "postcode": "SO14 5AE",
+   "phone": "02380 233000",
+   "email": "info@powerpluscoms.co.uk"
+  },
+  {
+   "business_name": "Royle Jackson Ltd",
+   "location": "southampton",
+   "street_address": "1 Granville Street",
+   "locality": "Southampton",
+   "postcode": "SO14 5FQ",
+   "phone": "02380 331288",
+   "email": "dan@roylejackson.co.uk"
+  },
+  {
+   "business_name": "Tandem Electrical Ltd",
+   "location": "southampton",
+   "street_address": "22 City Commerce Centre",
+   "locality": "Southampton",
+   "postcode": "SO14 3EW",
+   "phone": null,
+   "email": "tim@tandemelectrical.co.uk"
+  },
+  {
+   "business_name": "Bartons of Duke Street Limited",
+   "location": "st-helens",
+   "street_address": "Bartons Of Duke Street Limited, 64-80 Duke Street",
+   "locality": "St Helens",
+   "postcode": "WA10 2JG",
+   "phone": "01744 451063",
+   "email": "sales@bartons-heating.co.uk"
+  },
+  {
+   "business_name": "D&G Electrical Services (UK) Ltd",
+   "location": "st-helens",
+   "street_address": "Suite 2, ENA Works, Volunteer Street",
+   "locality": "St Helens",
+   "postcode": "WA10 2HW",
+   "phone": "07976 252795",
+   "email": "office@dgelec.co.uk"
+  },
+  {
+   "business_name": "DELEC",
+   "location": "st-helens",
+   "street_address": "10 Liberty Place",
+   "locality": "St Helens",
+   "postcode": "WA10 4PQ",
+   "phone": "07743 643567",
+   "email": "darrenmichael@outlook.com"
+  },
+  {
+   "business_name": "DGS Electrical Solutions Ltd",
+   "location": "st-helens",
+   "street_address": "14 Waterside Court",
+   "locality": "St Helens",
+   "postcode": "WA9 1UA",
+   "phone": "01744413509",
+   "email": "dave@dgselectricalsolutions.com"
+  },
+  {
+   "business_name": "G Sinclair Electrical Services Ltd",
+   "location": "st-helens",
+   "street_address": "15 Royston Gardens",
+   "locality": "St Helens",
+   "postcode": "WA9 1RJ",
+   "phone": null,
+   "email": "g.sinclair60@hotmail.com"
+  },
+  {
+   "business_name": "Hayes Electrical Ltd",
+   "location": "st-helens",
+   "street_address": "57-59 Brynn Street, St Helens",
+   "locality": "Merseyside",
+   "postcode": "WA10 1JB",
+   "phone": "07725 512668",
+   "email": "chris@hayeselectrical.com"
+  },
+  {
+   "business_name": "Impact Services",
+   "location": "st-helens",
+   "street_address": "Suite 13 Waterside Court, Sthelens Technology Campus",
+   "locality": "St Helens",
+   "postcode": "WA9 1UA",
+   "phone": "01744 812423",
+   "email": "dave.littlemore@impactservices.org.uk"
+  },
+  {
+   "business_name": "Mere UK Ltd",
+   "location": "st-helens",
+   "street_address": "Peter Street Centre, Peter Street",
+   "locality": "St Helens",
+   "postcode": "WA10 2EQ",
+   "phone": "01744 750269",
+   "email": "support@mereuk.com"
+  },
+  {
+   "business_name": "Peg Services Ltd",
+   "location": "st-helens",
+   "street_address": "Unit 22 Gerards Park, College Street",
+   "locality": "St. Helens",
+   "postcode": "WA10 1FZ",
+   "phone": "01744 416330",
+   "email": "colin@pegservices.co.uk"
+  },
+  {
+   "business_name": "Triangle Elec Ltd",
+   "location": "st-helens",
+   "street_address": "10 Harris Street",
+   "locality": "St.Helens",
+   "postcode": "WA10 2NW",
+   "phone": "07725 160246",
+   "email": "jduk5@yahoo.co.uk"
+  },
+  {
+   "business_name": "A F Installations Ltd",
+   "location": "stockport",
+   "street_address": "2 Coombes Street",
+   "locality": "Stockport",
+   "postcode": "SK2 7NZ",
+   "phone": "07775 608094",
+   "email": "afinstall@gmail.com"
+  },
+  {
+   "business_name": "Brooktech Maintenance Services Ltd",
+   "location": "stockport",
+   "street_address": "Unit 17.2 Meadow Ind Est, Water Street",
+   "locality": "Stockport",
+   "postcode": "SK1 2BY",
+   "phone": "07766 484246",
+   "email": "james@brooktechmaintenance.com"
+  },
+  {
+   "business_name": "EMC Electrical Contractors LLP",
+   "location": "stockport",
+   "street_address": "50 Osborne Road, Cale Green",
+   "locality": "Stockport",
+   "postcode": "SK2 6RQ",
+   "phone": "07931 880610",
+   "email": "john@emcelectrical.co.uk"
+  },
+  {
+   "business_name": "Lavelle Electrical Contractors Ltd",
+   "location": "stockport",
+   "street_address": "Unit 21 Hillgate Business Centre, Stockport",
+   "locality": "Manchester",
+   "postcode": "SK1 3AU",
+   "phone": "01618 720746",
+   "email": "lavelle@lavelle-elec.com"
+  },
+  {
+   "business_name": "NFK Electrical & Maintenance Ltd",
+   "location": "stockport",
+   "street_address": "60 Northcliffe Road, Offerton",
+   "locality": "Stockport",
+   "postcode": "SK2 5AQ",
+   "phone": "07968 854586",
+   "email": "nathan.george@nfkelectrical.co.uk"
+  },
+  {
+   "business_name": "S & L Electrical NW Ltd",
+   "location": "stockport",
+   "street_address": "Unit 1 Waterloo Park Industrial Estate, Upper Brook Street",
+   "locality": "Stockport",
+   "postcode": "SK1 3BP",
+   "phone": "01614 770342",
+   "email": "steven@slelectricalnw.co.uk"
+  },
+  {
+   "business_name": "Ubique Electrics Ltd",
+   "location": "stockport",
+   "street_address": "87 Nursery Road",
+   "locality": "Stockport",
+   "postcode": "SK4 2ND",
+   "phone": null,
+   "email": "craig.lindsay640@gmail.com"
+  },
+  {
+   "business_name": "247EV Ltd",
+   "location": "warrington",
+   "street_address": "The Maltings, 100 Wilderspool Causeway",
+   "locality": "Warrington",
+   "postcode": "WA4 6PU",
+   "phone": "03301 334186",
+   "email": "info@247ev.co.uk"
+  },
+  {
+   "business_name": "CLC Contractors Ltd",
+   "location": "warrington",
+   "street_address": "212-214 Manchester Road",
+   "locality": "Warrinton",
+   "postcode": "WA1 3BD",
+   "phone": "01925 417200",
+   "email": "warrington@clcgroup.com"
+  },
+  {
+   "business_name": "DTM Electrical",
+   "location": "warrington",
+   "street_address": "29 Helsby Street",
+   "locality": "Warrington",
+   "postcode": "WA1 3AX",
+   "phone": "07943 275149",
+   "email": "dtm.electrical@hotmail.com"
+  },
+  {
+   "business_name": "Excel Business Environments Ltd",
+   "location": "warrington",
+   "street_address": "5 Bewsey Road",
+   "locality": "Warrington",
+   "postcode": "WA2 7LN",
+   "phone": "01925 489880",
+   "email": "paul@excelbel.co.uk"
+  },
+  {
+   "business_name": "NBS Electrical Services (NW) Ltd",
+   "location": "warrington",
+   "street_address": "2 Houghton Avenue",
+   "locality": "Warrington",
+   "postcode": "WA2 7EQ",
+   "phone": "07710 640040",
+   "email": "info@nbselectrical.co.uk"
+  },
+  {
+   "business_name": "Ryelec Electrical Solutions Ltd",
+   "location": "warrington",
+   "street_address": "97 Lord Nelson Street",
+   "locality": "Warrington",
+   "postcode": "WA1 2JF",
+   "phone": "07595 376144",
+   "email": "ryelec1@gmail.com"
+  }
+ ]
+}

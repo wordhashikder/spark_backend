@@ -72,9 +72,11 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
-        allow_headers=["Authorization", "Content-Type", REQUEST_ID_HEADER],
+        # Credentials: the Dashboard's refresh cookie (see `/auth/session`). Origins are an
+        # explicit list, never `*`.
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
+        allow_headers=["Authorization", "Content-Type", "X-Requested-With", REQUEST_ID_HEADER],
         expose_headers=[REQUEST_ID_HEADER, "Retry-After"],
         max_age=600,
     )

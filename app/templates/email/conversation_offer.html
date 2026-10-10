@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ name }},</p>
+<p style="margin:0 0 16px;">{{ business_name }} has sent you a quote for your EV charger installation.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border:1px solid #e5eaf0;border-radius:8px;">
+  <tr><td style="padding:16px;font-family:Arial,Helvetica,sans-serif;">
+    <p style="margin:0 0 4px;font-size:13px;color:#5b6b7d;">Quote {{ reference }}</p>
+    <p style="margin:0 0 8px;font-size:24px;font-weight:bold;color:#10263f;">{{ amount }} <span style="font-size:14px;font-weight:normal;color:#5b6b7d;">{{ vat }}</span></p>
+    <p style="margin:0;white-space:pre-wrap;font-size:14px;color:#10263f;">{{ description }}</p>
+    {% if valid_until %}<p style="margin:8px 0 0;font-size:13px;color:#5b6b7d;">Valid until {{ valid_until }}</p>{% endif %}
+  </td></tr>
+</table>
+{% if note %}<p style="margin:0 0 16px;white-space:pre-wrap;">{{ note }}</p>{% endif %}
+{{ button(link, "View, accept or decline") }}
+<p style="margin:0;">There is no obligation to accept. You can ask {{ business_name }} questions on the same page, or reply to this email.</p>
+{% endblock %}

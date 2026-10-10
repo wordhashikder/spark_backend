@@ -1,0 +1,12 @@
+Hello,
+
+We received a request to claim the PickASparky listing for {{ business_name }}. This listing has already been claimed, so it is managed from an existing account.
+
+If that account is yours, sign in or reset your password:
+Sign in: {{ login_url }}
+Reset your password: {{ reset_url }}
+
+If you think someone else has claimed your business, reply to this email and we will look into it.
+
+PickASparky
+{{ support_email }}

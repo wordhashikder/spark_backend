@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ business_name }},</p>
+{% if accepted %}
+<p style="margin:0 0 16px;">Good news: <strong>{{ name }}</strong> has accepted your quote {{ reference }} for {{ amount }}. Get in touch to arrange the installation: <a href="mailto:{{ email }}" style="color:#0a9b53;">{{ email }}</a>.</p>
+{% else %}
+<p style="margin:0 0 16px;">{{ name }} has declined your quote {{ reference }} for {{ amount }}.</p>
+{% endif %}
+{% if note %}<p style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #0a9b53;background:#f5f8fb;white-space:pre-wrap;">{{ note }}</p>{% endif %}
+{{ button(link, "Open the conversation") }}
+{% endblock %}

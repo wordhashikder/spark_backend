@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hello,</p>
+{% if invited %}
+<p style="margin:0 0 16px;"><strong>{{ business_name }}</strong> has a free listing on PickASparky, the UK directory of EV charger installers. Homeowners near you can already find it.</p>
+<p style="margin:0 0 16px;">Claim the listing to manage it yourself: check your details, add your accreditations, photos and services, and choose whether to receive customer enquiries.</p>
+{% else %}
+<p style="margin:0 0 16px;">We received a request to claim the PickASparky listing for <strong>{{ business_name }}</strong>. Set a password to take it over.</p>
+{% endif %}
+{{ button(link, "Claim your listing") }}
+<p style="margin:0 0 16px;">The link is valid for 72 hours. If the button does not work, copy this address into your browser:</p>
+<p style="margin:0 0 16px;word-break:break-all;"><a href="{{ link }}" style="color:#0a9b53;">{{ link }}</a></p>
+<p style="margin:0 0 16px;">See your listing: <a href="{{ profile_url }}" style="color:#0a9b53;">{{ profile_url }}</a></p>
+<p style="margin:0;">Claiming is free. If this email was not meant for you, you can ignore it{% if invited %} or reply to have the listing removed{% endif %}.</p>
+{% endblock %}

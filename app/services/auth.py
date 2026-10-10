@@ -11,7 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import security
 from app.core.config import get_settings
 from app.core.enums import AuthTokenPurpose, Role
-from app.core.exceptions import ForbiddenError, InvalidTokenError, NotAuthenticatedError
+from app.core.exceptions import (
+    FieldValidationError,
+    ForbiddenError,
+    InvalidTokenError,
+    NotAuthenticatedError,
+)
 from app.models import AuthToken, RefreshToken, User
 from app.models.base import utcnow
 from app.schemas.auth import Me, MeInstaller, RegisterRequest, TokenPair
@@ -186,6 +191,38 @@ async def reset_password(session: AsyncSession, token: str, password: str) -> No
         .values(revoked_at=utcnow())
     )
     await session.commit()
+
+
+async def change_password(
+    session: AsyncSession, user: User, current_password: str, new_password: str
+) -> None:
+    """Change the password after checking the current one; ends every other session."""
+    valid, _ = await security.verify_password(current_password, user.password_hash)
+    if not valid:
+        raise FieldValidationError({"current_password": "Your current password is incorrect."})
+    user.password_hash = await security.hash_password(new_password)
+    await session.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .values(revoked_at=utcnow())
+    )
+    await session.commit()
+
+
+async def new_session(session: AsyncSession, user: User) -> TokenPair:
+    """Start a fresh session for a signed-in user (e.g. after changing the password)."""
+    tokens = await _start_session(session, user, family_id=uuid.uuid4())
+    await session.commit()
+    return tokens
+
+
+async def user_for_refresh_token(session: AsyncSession, refresh_token: str) -> User | None:
+    user_id = await session.scalar(
+        select(RefreshToken.user_id).where(
+            RefreshToken.token_hash == security.hash_token(refresh_token)
+        )
+    )
+    return await session.get(User, user_id) if user_id else None
 
 
 async def get_profile(session: AsyncSession, user: User) -> Me:

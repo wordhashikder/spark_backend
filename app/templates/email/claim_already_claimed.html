@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hello,</p>
+<p style="margin:0 0 16px;">We received a request to claim the PickASparky listing for <strong>{{ business_name }}</strong>. This listing has already been claimed, so it is managed from an existing account.</p>
+<p style="margin:0 0 16px;">If that account is yours, sign in or reset your password. If you think someone else has claimed your business, reply to this email and we will look into it.</p>
+{{ button(login_url, "Sign in") }}
+<p style="margin:0;">Forgotten your password? <a href="{{ reset_url }}" style="color:#0a9b53;">Reset it here</a>.</p>
+{% endblock %}

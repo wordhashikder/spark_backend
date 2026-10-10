@@ -1,0 +1,10 @@
+Someone asked to claim a listing from an email address that is not the one on file, so no claim link was sent.
+
+Listing: {{ business_name }}
+{{ profile_url }}
+Email on file: {{ email_on_file or "none" }}
+Phone on file: {{ phone_on_file or "none" }}
+
+Requested by: {{ requester_email }}
+
+Check the request (for example by calling the number on file). To approve it, update the listing's email in the Dashboard and send a claim invitation. Replies to this email go to the requester.

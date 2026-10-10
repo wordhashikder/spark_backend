@@ -1,0 +1,21 @@
+Hello,
+
+{% if invited %}
+{{ business_name }} has a free listing on PickASparky, the UK directory of EV charger installers. Homeowners near you can already find it.
+
+Claim the listing to manage it yourself: check your details, add your accreditations, photos and services, and choose whether to receive customer enquiries.
+{% else %}
+We received a request to claim the PickASparky listing for {{ business_name }}. Set a password to take it over.
+{% endif %}
+
+Claim your listing:
+{{ link }}
+
+The link is valid for 72 hours.
+
+See your listing: {{ profile_url }}
+
+Claiming is free. If this email was not meant for you, you can ignore it{% if invited %} or reply to have the listing removed{% endif %}.
+
+PickASparky
+{{ support_email }}

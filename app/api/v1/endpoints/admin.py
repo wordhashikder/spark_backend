@@ -3,13 +3,25 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 
-from app.api.deps import EmailQueueDep, PageDep, SessionDep, StorageDep, read_upload, require_role
+from app.api.deps import (
+    EmailQueueDep,
+    PageDep,
+    SessionDep,
+    SettingsDep,
+    StorageDep,
+    read_upload,
+    require_role,
+)
+from app.core import permissions
 from app.core.enums import (
     AccreditationScheme,
     BlogPostStatus,
+    InstallerSource,
     InstallerStatus,
+    Plan,
+    QuoteStatus,
     ReviewStatus,
     Role,
 )
@@ -18,15 +30,20 @@ from app.schemas.admin import (
     AdminContactMessage,
     AdminInstaller,
     AdminInstallerUpdate,
+    AdminOverview,
     AdminQuote,
+    AdminQuoteMatch,
     AdminReview,
     AdminReviewUpdate,
+    PlatformInfo,
+    RoleMatrix,
 )
 from app.schemas.blog import AdminBlogPost, BlogPostCreate, BlogPostUpdate
-from app.schemas.common import Paginated
+from app.schemas.common import Message, Paginated
+from app.schemas.conversation import ConversationDetail, ConversationSummary
 from app.schemas.enquiry import AdminEnquiry
 from app.schemas.location import AdminLocation, AdminLocationUpdate
-from app.services import admin, blog, enquiries, locations
+from app.services import admin, blog, claims, conversations, enquiries, locations
 
 AltForm = Annotated[str | None, Form(max_length=160)]
 
@@ -35,12 +52,44 @@ router = APIRouter(
 )
 
 
+@router.get("/overview")
+async def overview(
+    session: SessionDep, days: Annotated[int, Query(ge=7, le=365)] = 30
+) -> AdminOverview:
+    return await admin.overview(session, days=days)
+
+
+@router.get("/roles")
+async def role_matrix() -> RoleMatrix:
+    """Who can do what. Read-only: the rules live in code (see `app/core/permissions.py`)."""
+    return permissions.ROLE_MATRIX
+
+
+@router.get("/platform")
+async def platform(session: SessionDep, settings: SettingsDep) -> PlatformInfo:
+    """Configuration status for the Settings page. Never includes secrets."""
+    return await admin.platform_info(session, settings)
+
+
 @router.get("/installers")
 async def list_installers(
-    session: SessionDep, page: PageDep, status: InstallerStatus | None = None
+    session: SessionDep,
+    page: PageDep,
+    status: InstallerStatus | None = None,
+    source: InstallerSource | None = None,
+    plan: Plan | None = None,
+    claimed: bool | None = None,
+    q: Annotated[str | None, Query(max_length=100)] = None,
 ) -> Paginated[AdminInstaller]:
     found, total = await admin.list_installers(
-        session, status=status, offset=page.offset, limit=page.page_size
+        session,
+        status=status,
+        source=source,
+        plan=plan,
+        claimed=claimed,
+        search=q,
+        offset=page.offset,
+        limit=page.page_size,
     )
     return Paginated.build(
         [AdminInstaller.from_installer(installer) for installer in found],
@@ -48,6 +97,21 @@ async def list_installers(
         page=page.page,
         page_size=page.page_size,
     )
+
+
+@router.get("/installers/{installer_id}")
+async def get_installer(installer_id: uuid.UUID, session: SessionDep) -> AdminInstaller:
+    return AdminInstaller.from_installer(await admin.get_installer(session, installer_id))
+
+
+@router.post("/installers/{installer_id}/claim-invite", status_code=status.HTTP_202_ACCEPTED)
+async def send_claim_invite(
+    installer_id: uuid.UUID, session: SessionDep, emails: EmailQueueDep
+) -> Message:
+    """Email an unclaimed listing the link to claim it (to the email on file)."""
+    installer = await admin.get_installer(session, installer_id)
+    emails.send(await claims.invite(session, installer))
+    return Message(message=f"Claim invitation sent to {installer.contact_email}.")
 
 
 @router.patch("/installers/{installer_id}")
@@ -97,14 +161,45 @@ async def moderate_review(
 
 
 @router.get("/quotes")
-async def list_quotes(session: SessionDep, page: PageDep) -> Paginated[AdminQuote]:
-    found, total = await admin.list_quotes(session, offset=page.offset, limit=page.page_size)
+async def list_quotes(
+    session: SessionDep,
+    page: PageDep,
+    status: QuoteStatus | None = None,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+) -> Paginated[AdminQuote]:
+    found, total = await admin.list_quotes(
+        session, status=status, search=q, offset=page.offset, limit=page.page_size
+    )
     return Paginated.build(
         [AdminQuote.model_validate(quote) for quote in found],
         total=total,
         page=page.page,
         page_size=page.page_size,
     )
+
+
+@router.get("/quotes/{quote_id}/matches")
+async def list_quote_matches(quote_id: uuid.UUID, session: SessionDep) -> list[AdminQuoteMatch]:
+    """The installers a quote request was sent to, and how far each has got."""
+    return [
+        AdminQuoteMatch.from_match(match) for match in await admin.quote_matches(session, quote_id)
+    ]
+
+
+@router.get("/conversations")
+async def list_conversations(
+    session: SessionDep, page: PageDep, installer_id: uuid.UUID | None = None
+) -> Paginated[ConversationSummary]:
+    found, total = await conversations.list_all(
+        session, installer_id=installer_id, offset=page.offset, limit=page.page_size
+    )
+    return Paginated.build(found, total=total, page=page.page, page_size=page.page_size)
+
+
+@router.get("/conversations/{conversation_id}")
+async def get_conversation(conversation_id: uuid.UUID, session: SessionDep) -> ConversationDetail:
+    """A conversation's full history (read-only)."""
+    return await conversations.get_any(session, conversation_id)
 
 
 @router.get("/contact-messages")
@@ -140,7 +235,8 @@ async def list_enquiries(session: SessionDep, page: PageDep) -> Paginated[AdminE
 @router.get("/locations")
 async def list_locations(session: SessionDep) -> list[AdminLocation]:
     return [
-        AdminLocation.model_validate(location) for location in await locations.list_all(session)
+        AdminLocation.model_validate(location).model_copy(update={"installer_count": count})
+        for location, count in await locations.list_all_with_counts(session)
     ]
 
 

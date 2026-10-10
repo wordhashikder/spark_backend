@@ -1,0 +1,11 @@
+Hi {{ business_name }},
+
+{{ name }} has replied:
+
+{{ body }}
+
+Open the conversation: {{ link }}
+
+Reply from your dashboard to keep the full history in one place, or reply to this email to answer {{ name }} directly.
+
+PickASparky

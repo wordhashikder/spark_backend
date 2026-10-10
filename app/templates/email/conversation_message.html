@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ name }},</p>
+<p style="margin:0 0 16px;">{{ business_name }} has sent you a message about your EV charger installation:</p>
+<p style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #0a9b53;background:#f5f8fb;white-space:pre-wrap;">{{ body }}</p>
+{{ button(link, "Read and reply") }}
+<p style="margin:0;">Your conversation and any quotes are kept on that page, so you can come back to them at any time. You can also reply to this email to answer {{ business_name }} directly.</p>
+{% endblock %}

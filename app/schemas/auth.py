@@ -76,3 +76,41 @@ class Me(BaseModel):
     role: Role
     email_verified: bool
     installer: MeInstaller | None
+
+
+class AccessToken(BaseModel):
+    """A session for the Dashboard app: the refresh token travels in an httpOnly cookie."""
+
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"  # noqa: S105 - the OAuth2 token type, not a secret
+    expires_in: int
+    user: Me
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
+    new_password: Password
+
+
+class ClaimRequest(BaseModel):
+    email: Email
+
+
+class ClaimPreview(BaseModel):
+    business_name: str
+    slug: str
+    email: str
+    town: str
+
+
+class ClaimAccount(BaseModel):
+    token: OpaqueToken
+    password: Password
+    accept_terms: bool
+
+    @field_validator("accept_terms")
+    @classmethod
+    def _terms_must_be_accepted(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("You must accept the terms to claim the listing.")
+        return value

@@ -1,0 +1,21 @@
+Hi {{ name }},
+
+{{ business_name }} has sent you a quote for your EV charger installation.
+
+Quote {{ reference }}
+{{ amount }} {{ vat }}
+{{ description }}
+{% if valid_until %}
+Valid until {{ valid_until }}
+{% endif %}
+{% if note %}
+
+{{ note }}
+{% endif %}
+
+View, accept or decline: {{ link }}
+
+There is no obligation to accept. You can ask {{ business_name }} questions on the same page, or reply to this email.
+
+PickASparky
+{{ support_email }}

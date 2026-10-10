@@ -46,6 +46,7 @@ async def test_listing_shows_only_approved_installers_in_rank_order(
         "plan": "pro",
         "is_featured": False,
         "verified": True,
+        "is_claimed": True,
     }
 
     featured = await client.get("/api/v1/installers", params={"featured": "true"})

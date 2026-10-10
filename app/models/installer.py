@@ -24,6 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.enums import (
     AccreditationScheme,
+    InstallerSource,
     InstallerStatus,
     Plan,
     Service,
@@ -55,9 +56,21 @@ class Installer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_installers_status_is_featured", "status", "is_featured"),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), unique=True
+    # The account that manages the listing. Empty for a listing PickASparky added that the
+    # business has not claimed yet; deleting the account leaves the listing unclaimed.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), unique=True
     )
+    source: Mapped[InstallerSource] = mapped_column(
+        pg_enum(InstallerSource, "installer_source"),
+        default=InstallerSource.REGISTERED,
+        server_default=InstallerSource.REGISTERED.value,
+    )
+    # Business email for listings without an account: the address a claim link is sent to.
+    contact_email: Mapped[str | None] = mapped_column(String(254))
+    # Street address as supplied for imported listings (never shown publicly).
+    address: Mapped[str | None] = mapped_column(String(255))
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     slug: Mapped[str] = mapped_column(String(140), unique=True)
     business_name: Mapped[str] = mapped_column(String(120))
     contact_name: Mapped[str] = mapped_column(String(80))
@@ -109,7 +122,7 @@ class Installer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     review_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    user: Mapped[User] = relationship(lazy="raise")
+    user: Mapped[User | None] = relationship(lazy="raise")
     location: Mapped[Location] = relationship(lazy="raise")
     accreditations: Mapped[list[InstallerAccreditation]] = relationship(
         back_populates="installer",
@@ -125,6 +138,11 @@ class Installer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         order_by="InstallerPhoto.position",
         lazy="raise",
     )
+
+    @property
+    def is_claimed(self) -> bool:
+        """Whether a business account manages this listing."""
+        return self.user_id is not None
 
 
 class InstallerAccreditation(UUIDPrimaryKeyMixin, TimestampMixin, Base):

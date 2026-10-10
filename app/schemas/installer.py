@@ -96,7 +96,10 @@ class InstallerCard(BaseModel):
     review_count: int
     plan: Plan
     is_featured: bool
+    # Approved by PickASparky and run by the business's own account. Listings PickASparky
+    # added and nobody has claimed yet are not shown as verified.
     verified: bool
+    is_claimed: bool
 
     @classmethod
     def from_installer(cls, installer: Installer) -> Self:
@@ -126,7 +129,8 @@ class InstallerDetail(InstallerCard):
             accreditations=installer.accreditations if full else [],
             areas_covered=installer.areas_covered if full else [],
             photos=installer.photos if full else [],
-            accepts_direct_quotes=plan.accepts_direct_quotes,
+            # Requests to an unclaimed listing go to the team (see `services/enquiries.py`).
+            accepts_direct_quotes=plan.accepts_direct_quotes and installer.is_claimed,
         )
 
 
@@ -178,7 +182,8 @@ def _card_fields(installer: Installer) -> dict[str, object]:
         "review_count": installer.review_count,
         "plan": installer.plan,
         "is_featured": installer.is_featured,
-        "verified": installer.status is InstallerStatus.APPROVED,
+        "verified": installer.status is InstallerStatus.APPROVED and installer.is_claimed,
+        "is_claimed": installer.is_claimed,
     }
 
 

@@ -94,7 +94,8 @@ async def test_auth_responses_are_never_cached(client: httpx.AsyncClient):
 async def test_cors_allows_only_configured_origins(client: httpx.AsyncClient):
     allowed = await client.get("/health", headers={"Origin": "https://frontend.test"})
     assert allowed.headers["Access-Control-Allow-Origin"] == "https://frontend.test"
-    assert "Access-Control-Allow-Credentials" not in allowed.headers
+    # Credentials (the Dashboard's refresh cookie) only ever for a configured origin.
+    assert allowed.headers["Access-Control-Allow-Credentials"] == "true"
     denied = await client.get("/health", headers={"Origin": "https://evil.test"})
     assert "Access-Control-Allow-Origin" not in denied.headers
 

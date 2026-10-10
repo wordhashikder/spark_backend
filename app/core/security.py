@@ -19,6 +19,10 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_TYPE = "access"  # noqa: S105 - a claim value, not a credential
 REVIEW_INVITE_TOKEN_TYPE = "review_invite"  # noqa: S105 - a claim value, not a credential
 REVIEW_INVITE_LIFETIME = timedelta(days=60)
+LISTING_CLAIM_TOKEN_TYPE = "listing_claim"  # noqa: S105 - a claim value, not a credential
+LISTING_CLAIM_LIFETIME = timedelta(hours=72)
+CONVERSATION_TOKEN_TYPE = "conversation"  # noqa: S105 - a claim value, not a credential
+CONVERSATION_LINK_LIFETIME = timedelta(days=120)
 
 _password_hash = PasswordHash.recommended()
 # Verified against when the email is unknown so login takes the same time either way.
@@ -119,5 +123,42 @@ def decode_review_invite_token(token: str) -> uuid.UUID:
     payload = _decode(token, REVIEW_INVITE_TOKEN_TYPE)
     try:
         return uuid.UUID(payload["qm"])
+    except (KeyError, ValueError) as exc:
+        raise TokenError from exc
+
+
+@dataclass(frozen=True, slots=True)
+class ListingClaim:
+    installer_id: uuid.UUID
+    email: str
+
+
+def create_listing_claim_token(installer_id: uuid.UUID, email: str) -> str:
+    """A link to claim an unclaimed listing, sent to the business's email address.
+
+    Single use in effect: once the listing has an account, the claim is refused.
+    """
+    claims = {"ins": str(installer_id), "email": email, "type": LISTING_CLAIM_TOKEN_TYPE}
+    return _encode(claims, LISTING_CLAIM_LIFETIME)
+
+
+def decode_listing_claim_token(token: str) -> ListingClaim:
+    payload = _decode(token, LISTING_CLAIM_TOKEN_TYPE)
+    try:
+        return ListingClaim(installer_id=uuid.UUID(payload["ins"]), email=str(payload["email"]))
+    except (KeyError, ValueError) as exc:
+        raise TokenError from exc
+
+
+def create_conversation_token(conversation_id: uuid.UUID) -> str:
+    """The homeowner's private link to a conversation (no account needed)."""
+    claims = {"cv": str(conversation_id), "type": CONVERSATION_TOKEN_TYPE}
+    return _encode(claims, CONVERSATION_LINK_LIFETIME)
+
+
+def decode_conversation_token(token: str) -> uuid.UUID:
+    payload = _decode(token, CONVERSATION_TOKEN_TYPE)
+    try:
+        return uuid.UUID(payload["cv"])
     except (KeyError, ValueError) as exc:
         raise TokenError from exc

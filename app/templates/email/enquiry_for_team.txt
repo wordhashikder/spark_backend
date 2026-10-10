@@ -1,6 +1,6 @@
 A customer has sent a quote request from the profile of {{ business_name }}.
 
-{{ business_name }} is on the Free plan, which does not include enquiries, so the request was not sent to them. Please reply to the customer, or pass the request on to the installer.
+{{ business_name }} does not receive enquiries yet (Free plan{% if not claimed %}, listing not claimed{% endif %}), so the request was not sent to them. Please reply to the customer, or pass the request on to the installer.
 
 Customer
 {{ customer.name }}
@@ -16,8 +16,8 @@ Their message
 
 Installer
 {{ business_name }}
-{{ installer_email }}
-{{ installer_phone }}
+{{ installer_email or "No email on file" }}
+{{ installer_phone or "No phone on file" }}
 {{ profile_url }}
 
 Replying to this email answers {{ customer.name }} directly.

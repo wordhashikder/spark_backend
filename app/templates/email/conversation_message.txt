@@ -1,0 +1,12 @@
+Hi {{ name }},
+
+{{ business_name }} has sent you a message about your EV charger installation:
+
+{{ body }}
+
+Read and reply: {{ link }}
+
+Your conversation and any quotes are kept on that page, so you can come back to them at any time. You can also reply to this email to answer {{ business_name }} directly.
+
+PickASparky
+{{ support_email }}

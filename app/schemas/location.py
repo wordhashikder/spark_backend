@@ -27,6 +27,9 @@ class LocationDetail(LocationSummary):
     image_url: str | None
     image_alt: str | None
     image_credit: str | None
+    # Search snippet overrides; null means the page uses its standard wording.
+    seo_title: str | None = None
+    seo_description: str | None = None
 
 
 class LocationDirectory(BaseModel):
@@ -61,6 +64,9 @@ class AdminLocation(BaseModel):
     image_url: str | None
     image_alt: str | None
     image_credit: str | None
+    seo_title: str | None
+    seo_description: str | None
+    installer_count: int = 0
 
 
 class AdminLocationUpdate(BaseModel):
@@ -70,9 +76,11 @@ class AdminLocationUpdate(BaseModel):
     image_url: Annotated[ImageUrl | None, blank_as_none] = None
     image_alt: Annotated[Annotated[str, text(1, 160)] | None, blank_as_none] = None
     image_credit: Annotated[Annotated[str, text(1, 160)] | None, blank_as_none] = None
+    seo_title: Annotated[Annotated[str, text(1, 70)] | None, blank_as_none] = None
+    seo_description: Annotated[Annotated[str, text(1, 160)] | None, blank_as_none] = None
 
     @model_validator(mode="after")
     def _something_to_change(self) -> Self:
         if not self.model_fields_set:
-            raise ValueError("Provide at least one of intro, image_url, image_alt or image_credit.")
+            raise ValueError("Provide at least one field to change.")
         return self

@@ -41,3 +41,6 @@ class Location(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     image_credit: Mapped[str | None] = mapped_column(String(160))
     # Set only for images uploaded to Cloudinary, so a replaced image can be deleted there.
     image_public_id: Mapped[str | None] = mapped_column(String(255))
+    # Search snippet overrides set by the admin; blank uses the page's standard wording.
+    seo_title: Mapped[str | None] = mapped_column(String(70))
+    seo_description: Mapped[str | None] = mapped_column(String(160))

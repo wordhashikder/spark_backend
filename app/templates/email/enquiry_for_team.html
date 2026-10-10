@@ -2,7 +2,7 @@
 {% from "_macros.html" import button %}
 {% block content %}
 <p style="margin:0 0 16px;">A customer has sent a quote request from the profile of <strong>{{ business_name }}</strong>.</p>
-<p style="margin:0 0 16px;">{{ business_name }} is on the Free plan, which does not include enquiries, so the request was not sent to them. Please reply to the customer, or pass the request on to the installer.</p>
+<p style="margin:0 0 16px;">{{ business_name }} does not receive enquiries yet (Free plan{% if not claimed %}, listing not claimed{% endif %}), so the request was not sent to them. Please reply to the customer, or pass the request on to the installer.</p>
 <p style="margin:0 0 8px;"><strong>Customer</strong></p>
 <p style="margin:0 0 16px;">
   {{ customer.name }}<br>
@@ -14,8 +14,8 @@
 <p style="margin:0 0 8px;"><strong>Installer</strong></p>
 <p style="margin:0;">
   {{ business_name }}<br>
-  <a href="mailto:{{ installer_email }}" style="color:#0a9b53;">{{ installer_email }}</a><br>
-  {{ installer_phone }}
+  {% if installer_email %}<a href="mailto:{{ installer_email }}" style="color:#0a9b53;">{{ installer_email }}</a>{% else %}No email on file{% endif %}<br>
+  {{ installer_phone or "No phone on file" }}
 </p>
 {{ button("mailto:" ~ customer.email, "Reply to " ~ customer.name) }}
 <p style="margin:0;">Replying to this email answers {{ customer.name }} directly. Installer profile: <a href="{{ profile_url }}" style="color:#0a9b53;">{{ profile_url }}</a></p>

@@ -26,6 +26,29 @@ class AuthTokenPurpose(StrEnum):
     RESET_PASSWORD = "reset_password"  # noqa: S105 - a purpose name, not a credential
 
 
+class MessageSender(StrEnum):
+    INSTALLER = "installer"
+    HOMEOWNER = "homeowner"
+    TEAM = "team"  # PickASparky staff
+    SYSTEM = "system"  # automatic notes, e.g. "Quote accepted"
+
+
+class OfferStatus(StrEnum):
+    """A priced quote an installer sends a homeowner."""
+
+    SENT = "sent"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    WITHDRAWN = "withdrawn"
+
+
+class InstallerSource(StrEnum):
+    """How a business came to be listed."""
+
+    REGISTERED = "registered"  # signed up through the website
+    IMPORTED = "imported"  # added by PickASparky as a free basic listing; claimable
+
+
 class InstallerStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"

@@ -32,7 +32,8 @@ async def create(
     if installer is None:
         raise NotFoundError("Installer not found.")
 
-    direct = capabilities_for(installer.plan).accepts_direct_quotes
+    # Unclaimed listings and Free-plan installers: the team handles the request.
+    direct = installer.user is not None and capabilities_for(installer.plan).accepts_direct_quotes
     enquiry = InstallerEnquiry(
         installer_id=installer.id,
         name=data.name,
@@ -46,8 +47,10 @@ async def create(
     await session.commit()
     notification = (
         emails.installer_enquiry(enquiry, installer, installer.user.email)
-        if direct
-        else emails.enquiry_for_team(enquiry, installer, installer.user.email)
+        if direct and installer.user is not None
+        else emails.enquiry_for_team(
+            enquiry, installer, installer.user.email if installer.user else installer.contact_email
+        )
     )
     return [notification, emails.enquiry_ack(enquiry, installer)]
 

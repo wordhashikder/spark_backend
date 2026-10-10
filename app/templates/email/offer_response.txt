@@ -1,0 +1,15 @@
+Hi {{ business_name }},
+
+{% if accepted %}
+Good news: {{ name }} has accepted your quote {{ reference }} for {{ amount }}. Get in touch to arrange the installation: {{ email }}
+{% else %}
+{{ name }} has declined your quote {{ reference }} for {{ amount }}.
+{% endif %}
+{% if note %}
+
+{{ note }}
+{% endif %}
+
+Open the conversation: {{ link }}
+
+PickASparky

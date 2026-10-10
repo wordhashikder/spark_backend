@@ -90,6 +90,8 @@ async def get_detail(session: AsyncSession, slug: str) -> LocationDetail:
         image_url=location.image_url,
         image_alt=location.image_alt,
         image_credit=location.image_credit,
+        seo_title=location.seo_title,
+        seo_description=location.seo_description,
     )
 
 
@@ -129,6 +131,14 @@ async def nearest(session: AsyncSession, latitude: float, longitude: float) -> L
 
 async def list_all(session: AsyncSession) -> list[Location]:
     return list(await session.scalars(select(Location).order_by(Location.name)))
+
+
+async def list_all_with_counts(session: AsyncSession) -> list[tuple[Location, int]]:
+    """Every location with its public installer count (back office)."""
+    rows = await session.execute(
+        select(Location, _installer_count().label("installer_count")).order_by(Location.name)
+    )
+    return [(location, count) for location, count in rows]
 
 
 async def _get_for_update(session: AsyncSession, slug: str) -> Location:

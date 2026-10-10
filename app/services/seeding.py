@@ -1,12 +1,19 @@
-"""Reference and demo data: locations, the first admin, sample blog posts, and the
-development-only demo set."""
+"""Reference data, content and the development-only demo accounts.
+
+- Locations are upserted on every start-up (`seed-locations`).
+- Content (blog articles, the client's directory of EV installers, showcase profiles) is
+  applied in named batches (`seed-content`, also on every start-up). Each batch is inserted
+  once and recorded in `seed_batches`, so later edits or deletions by the admin are kept.
+- Demo login accounts (`seed-demo`) exist only outside production.
+"""
 
 import json
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import case, delete, or_, select
+from sqlalchemy import case, delete, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +23,7 @@ from app.core.enums import (
     AccreditationScheme,
     BlogPostStatus,
     DirectoryColumn,
+    InstallerSource,
     InstallerStatus,
     Plan,
     ReviewStatus,
@@ -28,9 +36,11 @@ from app.models import (
     InstallerPhoto,
     Location,
     Review,
+    SeedBatch,
     User,
 )
 from app.models.base import utcnow
+from app.models.installer import DEFAULT_COVERAGE_RADIUS_MILES
 from app.schemas.blog import BlogPostCreate
 from app.services import blog, installers, reviews
 from app.services.geocoding import GeocodedPostcode
@@ -143,15 +153,8 @@ def _sample_posts() -> list[tuple[BlogPostCreate, int]]:
     ]
 
 
-async def seed_blog(session: AsyncSession, *, only_if_empty: bool = False) -> int:
-    """Publish the sample posts that do not exist yet; returns how many were added.
-
-    Safe to re-run: a post whose slug already exists (sample or admin-written) is left alone.
-    With `only_if_empty`, nothing is added once the blog has any post at all, so a deploy
-    that seeds on start never brings back samples the admin has deleted.
-    """
-    if only_if_empty and await session.scalar(select(BlogPost.id).limit(1)) is not None:
-        return 0
+async def _insert_blog_samples(session: AsyncSession) -> int:
+    """Add the sample articles whose slug is free; no commit."""
     samples = _sample_posts()
     existing = set(
         await session.scalars(
@@ -176,6 +179,19 @@ async def seed_blog(session: AsyncSession, *, only_if_empty: bool = False) -> in
             )
         )
         added += 1
+    await session.flush()
+    return added
+
+
+async def seed_blog(session: AsyncSession, *, only_if_empty: bool = False) -> int:
+    """Publish the sample posts that do not exist yet; returns how many were added.
+
+    Safe to re-run: a post whose slug already exists (sample or admin-written) is left alone.
+    With `only_if_empty`, nothing is added once the blog has any post at all.
+    """
+    if only_if_empty and await session.scalar(select(BlogPost.id).limit(1)) is not None:
+        return 0
+    added = await _insert_blog_samples(session)
     await session.commit()
     return added
 
@@ -221,48 +237,98 @@ def demo_postcodes() -> list[GeocodedPostcode]:
     ]
 
 
-async def purge_demo(session: AsyncSession) -> int:
-    """Delete every demo account (and, by cascade, its installer, reviews and leads)."""
-    _require_non_production()
-    result = await session.execute(
-        delete(User).where(User.email.like(f"%@{DEMO_EMAIL_DOMAIN}")).returning(User.id)
-    )
-    await session.commit()
-    return len(result.all())
+# ---- Content batches ---------------------------------------------------------------
 
 
-async def seed_demo(session: AsyncSession) -> int:
-    """Replace the demo data set; returns the number of demo installers created."""
-    _require_non_production()
-    await purge_demo(session)
+async def _locations_by_slug(session: AsyncSession) -> dict[str, Location]:
     locations = {location.slug: location for location in await session.scalars(select(Location))}
     if not locations:
         raise SeedingError("Seed locations first: python -m app.cli seed-locations")
+    return locations
 
-    demo = _load("demo.json")
-    now = utcnow()
-    session.add(
-        User(
-            email=DEMO_ADMIN_EMAIL,
-            password_hash=await security.hash_password(DEMO_ADMIN_PASSWORD),
-            role=Role.ADMIN,
-            email_verified_at=now,
-        )
+
+async def _existing_business_names(session: AsyncSession) -> set[str]:
+    return set(await session.scalars(select(func.lower(Installer.business_name))))
+
+
+def _listing_description(name: str, locality: str | None, postcode: str, town: str) -> str:
+    based = locality if locality and locality.lower() != town.lower() else town
+    district = postcode.split(" ")[0]
+    return (
+        f"{name} is an electrical business based in {based} ({district}), listed on "
+        f"PickASparky for EV charger installation in {town} and the surrounding area."
     )
 
-    by_name: dict[str, Installer] = {}
-    for entry in demo["installers"]:
+
+async def insert_listings(session: AsyncSession) -> int:
+    """The client's directory of EV installers (`data/listings.json`) as free basic listings.
+
+    Each listing is approved and public on the Free plan, has no account (so it receives no
+    leads), and can be claimed by the business through its email address. Businesses that are
+    already listed under the same name are skipped. No commit.
+    """
+    locations = await _locations_by_slug(session)
+    known = await _existing_business_names(session)
+    now = utcnow()
+    added = 0
+    for entry in _load("listings.json")["listings"]:
+        name = entry["business_name"]
+        if name.lower() in known:
+            continue
         location = locations[entry["location"]]
-        slug = installers.slugify(entry["business_name"])
+        address = ", ".join(part for part in (entry["street_address"], entry["locality"]) if part)
+        session.add(
+            Installer(
+                slug=await installers.unique_slug(session, name),
+                business_name=name,
+                contact_name="",
+                phone=entry["phone"] or "",
+                tagline=f"EV charger installation in {location.name}",
+                description=_listing_description(
+                    name, entry["locality"], entry["postcode"], location.name
+                ),
+                base_postcode=entry["postcode"],
+                # The listing serves its town: it is placed at the town's centre.
+                latitude=location.latitude,
+                longitude=location.longitude,
+                town=location.name,
+                location=location,
+                coverage_radius_miles=DEFAULT_COVERAGE_RADIUS_MILES,
+                services=["ev_charger_installation"],
+                areas_covered=[location.name],
+                status=InstallerStatus.APPROVED,
+                plan=Plan.FREE,
+                approved_at=now,
+                source=InstallerSource.IMPORTED,
+                contact_email=entry["email"],
+                address=address[:255] or None,
+            )
+        )
+        known.add(name.lower())
+        added += 1
+    await session.flush()
+    return added
+
+
+async def insert_showcase(session: AsyncSession) -> int:
+    """The showcase profiles and reviews from the design (`data/demo.json`), unclaimed.
+
+    Outside production these always load. In production they load only with
+    SEED_SHOWCASE=true: the businesses and reviews are illustrative, and publishing
+    invented reviews as genuine is not allowed on a live consumer site. No commit.
+    """
+    locations = await _locations_by_slug(session)
+    known = await _existing_business_names(session)
+    demo = _load("demo.json")
+    now = utcnow()
+    created: dict[str, Installer] = {}
+    for entry in demo["installers"]:
+        if entry["business_name"].lower() in known:
+            continue
+        location = locations[entry["location"]]
         status = InstallerStatus(entry["status"])
         installer = Installer(
-            user=User(
-                email=f"{slug}@{DEMO_EMAIL_DOMAIN}",
-                password_hash=await security.hash_password(DEMO_INSTALLER_PASSWORD),
-                role=Role.INSTALLER,
-                email_verified_at=now,
-            ),
-            slug=slug,
+            slug=await installers.unique_slug(session, entry["business_name"]),
             business_name=entry["business_name"],
             contact_name=entry["contact_name"],
             phone=entry["phone"],
@@ -283,6 +349,7 @@ async def seed_demo(session: AsyncSession) -> int:
             requested_plan=Plan(entry["plan"]),
             is_featured=entry["is_featured"],
             approved_at=now if status is InstallerStatus.APPROVED else None,
+            source=InstallerSource.IMPORTED,
             accreditations=[
                 InstallerAccreditation(scheme=AccreditationScheme(scheme), verified=True)
                 for scheme in entry["accreditations"]
@@ -295,14 +362,17 @@ async def seed_demo(session: AsyncSession) -> int:
             ],
         )
         session.add(installer)
-        by_name[installer.business_name] = installer
+        created[installer.business_name] = installer
     await session.flush()
 
     for entry in demo["reviews"]:
+        installer = created.get(entry["installer"])
+        if installer is None:
+            continue
         written_at = now - timedelta(days=entry["days_ago"], hours=entry["days_ago"] % 7)
         session.add(
             Review(
-                installer_id=by_name[entry["installer"]].id,
+                installer_id=installer.id,
                 rating=entry["rating"],
                 title=entry["title"],
                 body=entry["body"],
@@ -315,7 +385,92 @@ async def seed_demo(session: AsyncSession) -> int:
             )
         )
     await session.flush()
-    for installer in by_name.values():
+    for installer in created.values():
         await reviews.recompute_rating(session, installer.id)
+    return len(created)
+
+
+def _showcase_allowed() -> bool:
+    settings = get_settings()
+    return not settings.is_production or settings.seed_showcase
+
+
+ContentBatch = tuple[str, Callable[[AsyncSession], Awaitable[int]], Callable[[], bool]]
+
+# Applied in this order, each once. Never rename a batch that has shipped: add a new one.
+CONTENT_BATCHES: tuple[ContentBatch, ...] = (
+    ("blog-articles-2026-10", _insert_blog_samples, lambda: True),
+    ("directory-listings-2026-10", insert_listings, lambda: True),
+    ("showcase-installers-2026-10", insert_showcase, _showcase_allowed),
+)
+_SEED_LOCK = 4_242_001  # pg_advisory_xact_lock key: one seeder at a time
+
+
+async def seed_content(session: AsyncSession) -> list[tuple[str, int]]:
+    """Apply every content batch not applied yet; returns `(batch, records added)` pairs."""
+    applied: list[tuple[str, int]] = []
+    for name, insert_batch, allowed in CONTENT_BATCHES:
+        if not allowed():
+            continue
+        await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _SEED_LOCK})
+        if await session.get(SeedBatch, name) is not None:
+            await session.rollback()
+            continue
+        added = await insert_batch(session)
+        session.add(SeedBatch(name=name))
+        await session.commit()
+        applied.append((name, added))
+    return applied
+
+
+# ---- Demo accounts (never production) ------------------------------------------------
+
+
+async def purge_demo(session: AsyncSession) -> int:
+    """Delete every demo account. Their listings stay, unclaimed again."""
+    _require_non_production()
+    demo_users = select(User.id).where(User.email.like(f"%@{DEMO_EMAIL_DOMAIN}"))
+    await session.execute(
+        update(Installer).where(Installer.user_id.in_(demo_users)).values(claimed_at=None)
+    )
+    result = await session.execute(
+        delete(User).where(User.email.like(f"%@{DEMO_EMAIL_DOMAIN}")).returning(User.id)
+    )
     await session.commit()
-    return len(by_name)
+    return len(result.all())
+
+
+async def seed_demo(session: AsyncSession) -> int:
+    """Demo logins for development: the demo admin, and an account for every showcase
+    profile (`<slug>@demo.pickasparky.test`). Loads the showcase profiles if missing.
+    Returns how many showcase profiles have a demo account."""
+    _require_non_production()
+    await purge_demo(session)
+    await insert_showcase(session)
+
+    now = utcnow()
+    session.add(
+        User(
+            email=DEMO_ADMIN_EMAIL,
+            password_hash=await security.hash_password(DEMO_ADMIN_PASSWORD),
+            role=Role.ADMIN,
+            email_verified_at=now,
+        )
+    )
+    names = [entry["business_name"] for entry in _load("demo.json")["installers"]]
+    showcase = await session.scalars(
+        select(Installer).where(Installer.business_name.in_(names), Installer.user_id.is_(None))
+    )
+    password_hash = await security.hash_password(DEMO_INSTALLER_PASSWORD)
+    claimed = 0
+    for installer in showcase:
+        installer.user = User(
+            email=f"{installer.slug}@{DEMO_EMAIL_DOMAIN}",
+            password_hash=password_hash,
+            role=Role.INSTALLER,
+            email_verified_at=now,
+        )
+        installer.claimed_at = now
+        claimed += 1
+    await session.commit()
+    return claimed

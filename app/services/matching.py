@@ -11,10 +11,14 @@ from app.services.geo import installer_covers_point, installer_distance_to
 
 
 def _receives_leads() -> tuple:
-    """SQL filters selecting approved installers whose effective plan receives leads."""
+    """SQL filters selecting approved installers whose effective plan receives leads.
+
+    A listing nobody has claimed yet has no one to send leads to, whatever its plan.
+    """
     return (
         Installer.status == InstallerStatus.APPROVED,
         Installer.plan.in_(LEAD_RECEIVING_PLANS),
+        Installer.user_id.is_not(None),
     )
 
 
@@ -52,7 +56,11 @@ async def match_installers(
     then nearest, then highest rated.
     """
     matched: list[Installer] = []
-    if target is not None and capabilities_for(target.plan).accepts_direct_quotes:
+    if (
+        target is not None
+        and target.user_id is not None
+        and capabilities_for(target.plan).accepts_direct_quotes
+    ):
         matched.append(target)
 
     remaining = limit - len(matched)

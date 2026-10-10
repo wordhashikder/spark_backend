@@ -17,7 +17,14 @@ import aiosmtplib
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
 from app.core.config import Settings, get_settings
-from app.models import ContactMessage, Installer, InstallerEnquiry, QuoteRequest
+from app.models import (
+    ContactMessage,
+    Conversation,
+    Installer,
+    InstallerEnquiry,
+    Offer,
+    QuoteRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -261,11 +268,11 @@ def installer_enquiry(enquiry: InstallerEnquiry, installer: Installer, to: str) 
 
 
 def enquiry_for_team(
-    enquiry: InstallerEnquiry, installer: Installer, installer_email: str
+    enquiry: InstallerEnquiry, installer: Installer, installer_email: str | None
 ) -> Email:
-    """A request to a Free-plan (listed-only) installer, sent to the PickASparky team.
+    """A request to a Free-plan or unclaimed listing, sent to the PickASparky team.
 
-    The installer's plan does not include enquiries, so the team replies to the customer.
+    The business does not receive enquiries yet, so the team replies to the customer.
     Replies go straight to the customer.
     """
     return Email(
@@ -276,6 +283,7 @@ def enquiry_for_team(
             "business_name": installer.business_name,
             "installer_email": installer_email,
             "installer_phone": installer.phone,
+            "claimed": installer.is_claimed,
             "profile_url": _profile_url(installer),
             "customer": {"name": enquiry.name, "email": enquiry.email, "phone": enquiry.phone},
             "message": enquiry.message,
@@ -342,4 +350,151 @@ def review_invitation(quote: QuoteRequest, installer: Installer, token: str) -> 
             "business_name": installer.business_name,
             "link": link,
         },
+    )
+
+
+# ---- Claiming a listing ----------------------------------------------------------------
+
+
+def _dashboard_url(path: str = "") -> str:
+    return f"{get_settings().dashboard_url}{path}"
+
+
+def listing_claim_link(
+    installer: Installer, to: str, token: str, *, invited: bool = False
+) -> Email:
+    """The link that lets a business take over its free listing."""
+    return Email(
+        to=to,
+        subject=(
+            f"{installer.business_name} is listed on PickASparky"
+            if invited
+            else f"Claim your PickASparky listing: {installer.business_name}"
+        ),
+        template="listing_claim",
+        context={
+            "business_name": installer.business_name,
+            "profile_url": _profile_url(installer),
+            "link": f"{get_settings().frontend_url}/installer/claim/?token={token}",
+            "invited": invited,
+        },
+    )
+
+
+def claim_already_claimed(installer: Installer, to: str) -> Email:
+    return Email(
+        to=to,
+        subject=f"About your request to claim {installer.business_name}",
+        template="claim_already_claimed",
+        context={
+            "business_name": installer.business_name,
+            "login_url": f"{get_settings().frontend_url}/installer/login/",
+            "reset_url": f"{get_settings().frontend_url}/installer/forgot-password/",
+        },
+    )
+
+
+def claim_needs_review(installer: Installer, requester_email: str) -> Email:
+    """A claim from an address that is not the one on file: the team checks it by hand."""
+    return Email(
+        to=get_settings().support_email,
+        subject=f"Listing claim to check: {installer.business_name}",
+        template="claim_needs_review",
+        context={
+            "business_name": installer.business_name,
+            "profile_url": _profile_url(installer),
+            "requester_email": requester_email,
+            "email_on_file": installer.contact_email,
+            "phone_on_file": installer.phone,
+        },
+        reply_to=requester_email,
+    )
+
+
+# ---- Conversations ---------------------------------------------------------------------
+
+
+def conversation_link(token: str) -> str:
+    """The homeowner's private page for a conversation (see `/messages/` in the frontend)."""
+    return f"{get_settings().frontend_url}/messages/?token={token}"
+
+
+def conversation_message_to_homeowner(
+    conversation: Conversation, installer: Installer, body: str, link: str
+) -> Email:
+    return Email(
+        to=conversation.homeowner_email,
+        subject=f"New message from {installer.business_name}",
+        template="conversation_message",
+        context={
+            "name": conversation.homeowner_name,
+            "business_name": installer.business_name,
+            "body": body,
+            "link": link,
+        },
+        reply_to=installer.user.email if installer.user else None,
+    )
+
+
+def conversation_offer_to_homeowner(
+    conversation: Conversation,
+    installer: Installer,
+    offer: Offer,
+    note: str | None,
+    link: str,
+) -> Email:
+    return Email(
+        to=conversation.homeowner_email,
+        subject=f"Your quote from {installer.business_name} ({offer.reference})",
+        template="conversation_offer",
+        context={
+            "name": conversation.homeowner_name,
+            "business_name": installer.business_name,
+            "reference": offer.reference,
+            "amount": f"£{offer.amount:,.2f}",
+            "vat": "including VAT" if offer.includes_vat else "excluding VAT",
+            "description": offer.description,
+            "valid_until": offer.valid_until.strftime("%-d %B %Y") if offer.valid_until else None,
+            "note": note,
+            "link": link,
+        },
+        reply_to=installer.user.email if installer.user else None,
+    )
+
+
+def conversation_reply_to_installer(conversation: Conversation, body: str, to: str) -> Email:
+    return Email(
+        to=to,
+        subject=f"New message from {conversation.homeowner_name}",
+        template="conversation_reply",
+        context={
+            "business_name": conversation.installer.business_name,
+            "name": conversation.homeowner_name,
+            "body": body,
+            "link": _dashboard_url(f"/messages/{conversation.id}"),
+        },
+        reply_to=conversation.homeowner_email,
+    )
+
+
+def offer_response_to_installer(conversation: Conversation, offer: Offer, to: str) -> Email:
+    accepted = offer.status.value == "accepted"
+    return Email(
+        to=to,
+        subject=(
+            f"{conversation.homeowner_name} {'accepted' if accepted else 'declined'} "
+            f"quote {offer.reference}"
+        ),
+        template="offer_response",
+        context={
+            "business_name": conversation.installer.business_name,
+            "name": conversation.homeowner_name,
+            "accepted": accepted,
+            "reference": offer.reference,
+            "amount": f"£{offer.amount:,.2f}",
+            "note": offer.response_note,
+            "email": conversation.homeowner_email,
+            "link": _dashboard_url(f"/messages/{conversation.id}"),
+        },
+        reply_to=conversation.homeowner_email,
     )

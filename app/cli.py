@@ -23,6 +23,11 @@ def _build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("seed-locations", help="upsert the locations from app/data/locations.json")
+    commands.add_parser(
+        "seed-content",
+        help="add the content batches not added yet: blog articles, directory listings"
+        " and (outside production, or with SEED_SHOWCASE=true) the showcase installers",
+    )
 
     admin = commands.add_parser("create-admin", help="create a verified admin account")
     admin.add_argument("--email", help="admin email address (prompted for when omitted)")
@@ -39,7 +44,7 @@ def _build_parser() -> argparse.ArgumentParser:
     blog_mode.add_argument(
         "--if-empty",
         action="store_true",
-        help="only when the blog has no posts at all (used on start-up by SEED_SAMPLE_BLOG)",
+        help="only when the blog has no posts at all",
     )
 
     image = commands.add_parser(
@@ -90,6 +95,11 @@ async def _run(args: argparse.Namespace) -> str:
             match args.command:
                 case "seed-locations":
                     return f"Upserted {await seeding.seed_locations(session)} locations."
+                case "seed-content":
+                    applied = await seeding.seed_content(session)
+                    if not applied:
+                        return "Content is up to date."
+                    return "\n".join(f"Added {name}: {count} rows." for name, count in applied)
                 case "create-admin":
                     email, password = _admin_credentials(args)
                     admin = await seeding.create_admin(session, email, password)

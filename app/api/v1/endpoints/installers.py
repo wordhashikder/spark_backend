@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 
 from app.api.deps import (
     ClientIpDep,
+    CurrentUserDep,
     EmailQueueDep,
     GeocoderDep,
     InstallerDep,
@@ -18,7 +19,19 @@ from app.api.deps import (
 )
 from app.core.plans import capabilities_for
 from app.core.rate_limit import rate_limit
+from app.schemas.auth import ClaimRequest
 from app.schemas.common import Message, Paginated
+from app.schemas.conversation import (
+    ConversationDetail,
+    ConversationStart,
+    ConversationSummary,
+    InstallerQuote,
+    InstallerSummary,
+    MessageCreate,
+    MessageOut,
+    OfferCreate,
+    OfferOut,
+)
 from app.schemas.enquiry import Enquiry, EnquiryCreate
 from app.schemas.installer import (
     InstallerCard,
@@ -29,7 +42,7 @@ from app.schemas.installer import (
 )
 from app.schemas.quote import Lead, LeadUpdate
 from app.schemas.review import ReviewOut
-from app.services import enquiries, installers, leads, reviews
+from app.services import claims, conversations, dashboard, enquiries, installers, leads, reviews
 
 router = APIRouter(prefix="/installers", tags=["installers"])
 
@@ -141,6 +154,121 @@ async def list_enquiries(
         total=total,
         page=page.page,
         page_size=page.page_size,
+    )
+
+
+# ---- In-app quotes and messages ---------------------------------------------------------
+
+
+@router.get("/me/summary")
+async def get_summary(installer: InstallerDep, session: SessionDep) -> InstallerSummary:
+    """Headline numbers for the installer's dashboard."""
+    return await dashboard.installer_summary(session, installer)
+
+
+@router.get("/me/conversations")
+async def list_conversations(
+    installer: InstallerDep, session: SessionDep, page: PageDep, unread: bool = False
+) -> Paginated[ConversationSummary]:
+    found, total = await conversations.list_for_installer(
+        session, installer, unread_only=unread, offset=page.offset, limit=page.page_size
+    )
+    return Paginated.build(found, total=total, page=page.page, page_size=page.page_size)
+
+
+@router.post("/me/conversations")
+async def start_conversation(
+    data: ConversationStart, installer: InstallerDep, session: SessionDep
+) -> ConversationDetail:
+    """Open the conversation for a lead or enquiry (returns the existing one if open)."""
+    conversation = await conversations.start(session, installer, data)
+    return await conversations.get_for_installer(session, installer, conversation.id)
+
+
+@router.get("/me/conversations/{conversation_id}")
+async def get_conversation(
+    conversation_id: uuid.UUID, installer: InstallerDep, session: SessionDep
+) -> ConversationDetail:
+    return await conversations.get_for_installer(session, installer, conversation_id)
+
+
+@router.post(
+    "/me/conversations/{conversation_id}/messages",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("installer-messages", "60/hour"))],
+)
+async def send_message(
+    conversation_id: uuid.UUID,
+    data: MessageCreate,
+    installer: InstallerDep,
+    user: CurrentUserDep,
+    session: SessionDep,
+    emails: EmailQueueDep,
+) -> MessageOut:
+    message, outbox = await conversations.installer_message(
+        session, installer, user, conversation_id, data.body
+    )
+    emails.send(outbox)
+    return message
+
+
+@router.post(
+    "/me/conversations/{conversation_id}/quotes",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("installer-quotes", "30/hour"))],
+)
+async def send_quote(
+    conversation_id: uuid.UUID,
+    data: OfferCreate,
+    installer: InstallerDep,
+    user: CurrentUserDep,
+    session: SessionDep,
+    emails: EmailQueueDep,
+) -> OfferOut:
+    """Send the homeowner a priced quote they can accept or decline."""
+    offer, outbox = await conversations.send_offer(session, installer, user, conversation_id, data)
+    emails.send(outbox)
+    return offer
+
+
+@router.get("/me/quotes")
+async def list_quotes(
+    installer: InstallerDep, session: SessionDep, page: PageDep
+) -> Paginated[InstallerQuote]:
+    found, total = await conversations.installer_offers(
+        session, installer, offset=page.offset, limit=page.page_size
+    )
+    return Paginated.build(
+        [InstallerQuote.build(offer, conversation) for offer, conversation in found],
+        total=total,
+        page=page.page,
+        page_size=page.page_size,
+    )
+
+
+@router.post("/me/quotes/{offer_id}/withdraw")
+async def withdraw_quote(
+    offer_id: uuid.UUID, installer: InstallerDep, session: SessionDep
+) -> OfferOut:
+    return await conversations.withdraw_offer(session, installer, offer_id)
+
+
+# ---- Public ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{slug}/claim",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limit("claim-request", "5/hour"))],
+)
+async def request_claim(
+    slug: str, data: ClaimRequest, session: SessionDep, emails: EmailQueueDep
+) -> Message:
+    """ "Is this your business?": email a claim link to the address on file for the listing."""
+    emails.send(await claims.request_claim(session, slug, data.email))
+    return Message(
+        message="Thanks. If the email matches our records for this business, we've sent you "
+        "a link to claim the listing. Otherwise our team will be in touch."
     )
 
 

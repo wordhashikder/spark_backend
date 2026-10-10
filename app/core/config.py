@@ -27,7 +27,16 @@ class Settings(BaseSettings):
     cors_origins: CommaSeparated = []
     allowed_hosts: CommaSeparated = ["*"]
     frontend_url: str = "http://localhost:3000"
+    # Public URL of the Dashboard app (installer and admin back office), for email links.
+    dashboard_url: str = "http://localhost:5173"
+    # The Dashboard keeps its refresh token in an httpOnly cookie set by this API.
+    # "lax" works when the Dashboard and API share a site (e.g. *.pickasparky.co.uk);
+    # use "none" only if they are on unrelated domains (requires HTTPS).
+    session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    session_cookie_domain: str | None = None
     internal_api_key: str | None = None
+    # Load the illustrative showcase profiles and reviews in production (staging demos only).
+    seed_showcase: bool = False
     docs_enabled: bool | None = None
 
     access_token_expire_minutes: int = Field(default=15, ge=1)
@@ -77,6 +86,7 @@ class Settings(BaseSettings):
         "stripe_price_pro",
         "stripe_price_premium",
         "docs_enabled",
+        "session_cookie_domain",
         mode="before",
     )
     @classmethod
@@ -97,7 +107,7 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must be a PostgreSQL URL")
         return value
 
-    @field_validator("frontend_url", "postcodes_api_url")
+    @field_validator("frontend_url", "dashboard_url", "postcodes_api_url")
     @classmethod
     def _strip_trailing_slash(cls, value: str) -> str:
         return value.rstrip("/")
