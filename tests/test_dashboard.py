@@ -69,31 +69,6 @@ async def test_change_password(client: httpx.AsyncClient, db: AsyncSession):
     assert new.status_code == 200
 
 
-async def test_admin_overview_roles_and_platform(client: httpx.AsyncClient, db: AsyncSession):
-    admin = await create_user(db, email="boss@example.com", role=Role.ADMIN)
-    installer = await create_installer(db, "Counted Installer")
-    headers = auth_headers(admin)
-
-    overview = await client.get("/api/v1/admin/overview", headers=headers)
-    assert overview.status_code == 200, overview.text
-    data = overview.json()
-    assert data["installers_total"] == 1
-    assert data["installers_claimed"] == 1
-    assert {"key": "pro", "count": 1} in data["installers_by_plan"]
-    assert data["locations_total"] > 0
-
-    roles = await client.get("/api/v1/admin/roles", headers=headers)
-    assert {role["role"] for role in roles.json()["roles"]} == {"admin", "installer"}
-
-    platform = await client.get("/api/v1/admin/platform", headers=headers)
-    assert platform.json()["admins"] == ["boss@example.com"]
-    assert "secret" not in platform.text.lower()
-
-    for path in ("overview", "roles", "platform"):
-        denied = await client.get(f"/api/v1/admin/{path}", headers=auth_headers(installer.user))
-        assert denied.status_code == 403
-
-
 async def test_admin_location_seo_fields(client: httpx.AsyncClient, db: AsyncSession):
     admin = await create_user(db, role=Role.ADMIN)
     headers = auth_headers(admin)

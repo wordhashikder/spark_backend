@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     cors_origins: CommaSeparated = []
     allowed_hosts: CommaSeparated = ["*"]
     frontend_url: str = "http://localhost:3000"
+    # Where the API reaches the website server-side to refresh its cache after edits
+    # (e.g. http://frontend:3000 on the Docker network). Blank uses FRONTEND_URL.
+    frontend_internal_url: str | None = None
     # Public URL of the Dashboard app (installer and admin back office), for email links.
     dashboard_url: str = "http://localhost:5173"
     # The Dashboard keeps its refresh token in an httpOnly cookie set by this API.
@@ -87,6 +90,7 @@ class Settings(BaseSettings):
         "stripe_price_premium",
         "docs_enabled",
         "session_cookie_domain",
+        "frontend_internal_url",
         mode="before",
     )
     @classmethod

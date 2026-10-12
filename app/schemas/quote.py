@@ -14,6 +14,7 @@ from app.core.enums import (
     FuseBoxDistance,
     InstallationType,
     LeadStatus,
+    OfferStatus,
     Timing,
 )
 from app.core.exceptions import FieldValueError
@@ -62,6 +63,8 @@ class QuoteCreated(BaseModel):
     reference: str
     postcode: str
     matched_installers: int
+    # Automatic matching is off: the team chooses the installers and emails the homeowner.
+    held: bool = False
 
 
 class LeadQuote(BaseModel):
@@ -82,11 +85,25 @@ class LeadQuote(BaseModel):
     phone: str | None
 
 
+class LeadProgress(BaseModel):
+    """Where a lead stands, for the installer's lead cards."""
+
+    # Installers the request went to, and quotes they have sent (withdrawn ones excluded).
+    installers_matched: int = 0
+    quotes_sent: int = 0
+    # From the installer's base to the job (null when the postcode was not located).
+    distance_miles: float | None = None
+    # The installer's own conversation and latest quote for this lead, if any.
+    conversation_id: uuid.UUID | None = None
+    my_quote_status: OfferStatus | None = None
+
+
 class Lead(BaseModel):
     id: uuid.UUID
     status: LeadStatus
     created_at: datetime
     quote: LeadQuote
+    progress: LeadProgress | None = None
 
     @classmethod
     def from_match(cls, match: QuoteMatch, *, reveal_contact: bool) -> Self:

@@ -1,0 +1,11 @@
+Hello{% if name %} {{ name }}{% endif %},
+
+{{ inviter }} has invited you to join the PickASparky team dashboard as {{ role }}.
+
+Choose a password to accept the invitation and sign in:
+{{ link }}
+
+The link is valid for 7 days and can be used once. If you were not expecting this, you can ignore this email.
+
+PickASparky
+{{ support_email }}

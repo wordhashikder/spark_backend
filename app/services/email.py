@@ -5,6 +5,7 @@ transaction has committed. Sending never raises into a request.
 """
 
 import logging
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ from app.models import (
     InstallerEnquiry,
     Offer,
     QuoteRequest,
+    User,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,11 @@ class Email:
     template: str
     context: Mapping[str, Any] = field(default_factory=dict)
     reply_to: str | None = None
+    # An alert for the PickASparky team: sent to the support address in Settings, and only
+    # while email alerts are on (see `EmailQueue` in `app/api/deps.py`).
+    team: bool = False
+    # Overrides EMAIL_FROM_NAME (the platform name in Settings).
+    from_name: str | None = None
 
 
 class EmailSender(Protocol):
@@ -69,7 +76,9 @@ class SmtpEmailSender:
             **email.context,
         }
         message = EmailMessage()
-        message["From"] = formataddr((settings.email_from_name, settings.email_from))
+        message["From"] = formataddr(
+            (email.from_name or settings.email_from_name, settings.email_from)
+        )
         message["To"] = email.to
         message["Subject"] = email.subject
         message["Date"] = format_datetime(datetime.now(UTC))
@@ -198,7 +207,10 @@ def installer_rejected(installer: Installer, to: str) -> Email:
     )
 
 
-def quote_confirmation(quote: QuoteRequest, installer_names: Sequence[str]) -> Email:
+def quote_confirmation(
+    quote: QuoteRequest, installer_names: Sequence[str], *, held: bool = False
+) -> Email:
+    """Sent on every request. `held`: automatic matching is off, so the team chooses."""
     return Email(
         to=quote.email,
         subject=f"We've received your quote request ({quote.reference})",
@@ -208,6 +220,25 @@ def quote_confirmation(quote: QuoteRequest, installer_names: Sequence[str]) -> E
             "reference": quote.reference,
             "answers": quote_summary(quote),
             "installer_names": list(installer_names),
+            "held": held,
+            "shared": False,
+        },
+    )
+
+
+def quote_shared(quote: QuoteRequest, installer_names: Sequence[str]) -> Email:
+    """The team sent a held or unmatched request to installers."""
+    return Email(
+        to=quote.email,
+        subject=f"Installers are ready to quote for your EV charger ({quote.reference})",
+        template="quote_confirmation",
+        context={
+            "first_name": quote.first_name,
+            "reference": quote.reference,
+            "answers": quote_summary(quote),
+            "installer_names": list(installer_names),
+            "held": False,
+            "shared": True,
         },
     )
 
@@ -232,12 +263,19 @@ def new_lead(quote: QuoteRequest, installer: Installer, to: str) -> Email:
     )
 
 
-def quote_unmatched(quote: QuoteRequest) -> Email:
+def quote_unmatched(quote: QuoteRequest, *, held: bool = False) -> Email:
+    """Team alert: a request matched nobody, or (`held`) waits for the team to choose."""
     return Email(
         to=get_settings().support_email,
-        subject=f"Unmatched quote request {quote.reference}",
+        subject=(
+            f"Quote request {quote.reference} is waiting for installers"
+            if held
+            else f"Unmatched quote request {quote.reference}"
+        ),
         template="quote_unmatched",
         context={
+            "held": held,
+            "link": _dashboard_url(f"/leads?open={quote.id}"),
             "reference": quote.reference,
             "answers": quote_summary(quote),
             "geocoded": quote.latitude is not None,
@@ -248,6 +286,7 @@ def quote_unmatched(quote: QuoteRequest) -> Email:
             },
         },
         reply_to=quote.email,
+        team=True,
     )
 
 
@@ -289,6 +328,7 @@ def enquiry_for_team(
             "message": enquiry.message,
         },
         reply_to=enquiry.email,
+        team=True,
     )
 
 
@@ -327,6 +367,7 @@ def contact_received(message: ContactMessage) -> Email:
             "message": message.message,
         },
         reply_to=message.email,
+        team=True,
     )
 
 
@@ -408,10 +449,15 @@ def claim_needs_review(installer: Installer, requester_email: str) -> Email:
             "phone_on_file": installer.phone,
         },
         reply_to=requester_email,
+        team=True,
     )
 
 
 # ---- Conversations ---------------------------------------------------------------------
+
+
+def installer_conversation_url(conversation_id: uuid.UUID) -> str:
+    return _dashboard_url(f"/messages/{conversation_id}")
 
 
 def conversation_link(token: str) -> str:
@@ -471,7 +517,7 @@ def conversation_reply_to_installer(conversation: Conversation, body: str, to: s
             "business_name": conversation.installer.business_name,
             "name": conversation.homeowner_name,
             "body": body,
-            "link": _dashboard_url(f"/messages/{conversation.id}"),
+            "link": installer_conversation_url(conversation.id),
         },
         reply_to=conversation.homeowner_email,
     )
@@ -494,7 +540,52 @@ def offer_response_to_installer(conversation: Conversation, offer: Offer, to: st
             "amount": f"£{offer.amount:,.2f}",
             "note": offer.response_note,
             "email": conversation.homeowner_email,
-            "link": _dashboard_url(f"/messages/{conversation.id}"),
+            "link": installer_conversation_url(conversation.id),
         },
         reply_to=conversation.homeowner_email,
+    )
+
+
+def conversation_team_message(
+    conversation: Conversation, body: str, *, to: str, audience: str, link: str
+) -> Email:
+    """The PickASparky team added a message to a conversation (sent to both sides)."""
+    homeowner = audience == "homeowner"
+    return Email(
+        to=to,
+        subject=(
+            "A message from PickASparky about your quote from "
+            f"{conversation.installer.business_name}"
+            if homeowner
+            else f"A message from PickASparky about {conversation.homeowner_name}'s request"
+        ),
+        template="conversation_team_message",
+        context={
+            "name": conversation.homeowner_name
+            if homeowner
+            else conversation.installer.business_name,
+            "other_party": conversation.installer.business_name
+            if homeowner
+            else conversation.homeowner_name,
+            "body": body,
+            "link": link,
+        },
+    )
+
+
+# ---- Team ---------------------------------------------------------------------------------
+
+
+def staff_invite(user: User, invited_by: User, token: str) -> Email:
+    inviter = invited_by.full_name or invited_by.email
+    return Email(
+        to=user.email,
+        subject="You're invited to the PickASparky dashboard",
+        template="staff_invite",
+        context={
+            "name": user.full_name,
+            "inviter": inviter,
+            "role": (user.staff_role.value if user.staff_role else "").capitalize(),
+            "link": _dashboard_url(f"/accept-invite?token={token}"),
+        },
     )

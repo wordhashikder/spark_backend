@@ -16,6 +16,7 @@ from app.services import email as emails
 from app.services import installers, matching
 from app.services.email import Email
 from app.services.geocoding import GeocodedPostcode, Geocoder, GeocodingUnavailableError
+from app.services.platform import LeadMatching
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +58,18 @@ async def _geocode(geocoder: Geocoder, postcode: str) -> GeocodedPostcode | None
 
 
 async def create_quote(
-    session: AsyncSession, data: QuoteCreate, geocoder: Geocoder, client_ip: str
+    session: AsyncSession,
+    data: QuoteCreate,
+    geocoder: Geocoder,
+    client_ip: str,
+    rules: LeadMatching | None = None,
 ) -> tuple[QuoteCreated, list[Email]]:
-    """Store a quote request, match it to installers and return the emails to send."""
+    """Store a quote request, match it to installers and return the emails to send.
+
+    With automatic matching off (Settings), the request is held for the team to choose its
+    installers; only an installer the homeowner asked for by name receives it at once.
+    """
+    rules = rules or LeadMatching(max_installers=get_settings().max_quote_matches)
     place = await _geocode(geocoder, data.postcode)
     target = (
         await matching.direct_quote_target(session, data.installer_slug)
@@ -97,24 +107,34 @@ async def create_quote(
             latitude=place.latitude,
             longitude=place.longitude,
             target=target,
-            limit=get_settings().max_quote_matches,
+            limit=rules.max_installers if rules.automatic else 1,
+            nearby=rules.automatic,
         )
         if place
         else []
     )
     session.add_all(QuoteMatch(quote_request=quote, installer=installer) for installer in matched)
-    quote.status = QuoteStatus.MATCHED if matched else QuoteStatus.UNMATCHED
+    held = not rules.automatic and not matched
+    if matched:
+        quote.status = QuoteStatus.MATCHED
+    else:
+        quote.status = QuoteStatus.NEW if held else QuoteStatus.UNMATCHED
     await session.commit()
 
     outbox = [
-        emails.quote_confirmation(quote, [installer.business_name for installer in matched]),
+        emails.quote_confirmation(
+            quote, [installer.business_name for installer in matched], held=held
+        ),
         *(emails.new_lead(quote, installer, installer.user.email) for installer in matched),
     ]
     if not matched:
-        outbox.append(emails.quote_unmatched(quote))
+        outbox.append(emails.quote_unmatched(quote, held=held))
     return (
         QuoteCreated(
-            reference=quote.reference, postcode=quote.postcode, matched_installers=len(matched)
+            reference=quote.reference,
+            postcode=quote.postcode,
+            matched_installers=len(matched),
+            held=held,
         ),
         outbox,
     )

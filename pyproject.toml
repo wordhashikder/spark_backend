@@ -51,6 +51,8 @@ known-third-party = ["alembic"]
 "tests/**" = ["S101", "S105", "S106"]
 "alembic/versions/**" = ["E501"]
 "app/cli.py" = ["T201"]
+# Website copy: typographic quotes, dashes and the › breadcrumb are deliberate.
+"app/content/**" = ["RUF001"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

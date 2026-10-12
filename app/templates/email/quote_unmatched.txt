@@ -1,9 +1,15 @@
+{% if held %}
+Quote request {{ reference }} is waiting for you: automatic matching is off, so choose its installers in the dashboard.
+
+{{ link }}
+{% else %}
 Quote request {{ reference }} could not be matched to an installer.
 
 {% if geocoded %}
 No approved, lead-receiving installer covers this postcode.
 {% else %}
 The postcode could not be geocoded because the lookup service was unavailable, so no matching was attempted.
+{% endif %}
 {% endif %}
 
 Customer

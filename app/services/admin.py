@@ -1,50 +1,44 @@
-"""Back-office use cases: moderating installers and reviews, browsing quotes and messages."""
+"""Back-office use cases: installers (moderation, adding, editing), reviews, quote requests
+(progress, choosing installers for held requests) and the platform's configuration status."""
 
 import uuid
-from datetime import timedelta
-from decimal import Decimal
+from collections.abc import Sequence
 
-from sqlalchemy import ColumnElement, Date, cast, func, or_, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.config import Settings
 from app.core.enums import (
     AccreditationScheme,
-    BlogPostStatus,
     InstallerSource,
     InstallerStatus,
-    OfferStatus,
     Plan,
     QuoteStatus,
     ReviewStatus,
-    Role,
 )
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ConflictError, FieldValidationError, NotFoundError
 from app.models import (
-    BlogPost,
     ContactMessage,
-    Conversation,
     Installer,
-    InstallerEnquiry,
-    Location,
-    Offer,
+    InstallerAccreditation,
     QuoteMatch,
     QuoteRequest,
     Review,
-    User,
 )
 from app.models.base import utcnow
 from app.schemas.admin import (
+    AdminInstallerCreate,
     AdminInstallerUpdate,
-    AdminOverview,
-    CountByKey,
-    DailyCount,
-    PlatformInfo,
+    PlatformStatus,
+    QuoteCandidate,
 )
 from app.services import email as emails
-from app.services import reviews
+from app.services import installers as installer_service
+from app.services import lead_stats, locations, matching, reviews
 from app.services.email import Email
+from app.services.geo import installer_covers_point, installer_distance_to
+from app.services.geocoding import Geocoder
 
 _INSTALLER_DETAILS = (
     joinedload(Installer.user),
@@ -122,9 +116,16 @@ async def _get_installer(session: AsyncSession, installer_id: uuid.UUID) -> Inst
 
 
 async def update_installer(
-    session: AsyncSession, installer_id: uuid.UUID, data: AdminInstallerUpdate
+    session: AsyncSession,
+    installer_id: uuid.UUID,
+    data: AdminInstallerUpdate,
+    geocoder: Geocoder,
 ) -> tuple[Installer, list[Email]]:
-    """Change status, plan or featuring; approving or rejecting emails the installer."""
+    """Change the fields sent; approving or rejecting emails the installer.
+
+    A new postcode moves the listing's base (and its town page) like the installer's own
+    profile edit does.
+    """
     installer = await _get_installer(session, installer_id)
     outbox: list[Email] = []
 
@@ -141,11 +142,92 @@ async def update_installer(
         installer.plan = data.plan
     if data.is_featured is not None:
         installer.is_featured = data.is_featured
-    if "contact_email" in data.model_fields_set:
-        installer.contact_email = data.contact_email
+    for field in ("contact_email", "contact_name", "description"):
+        if field in data.model_fields_set:
+            setattr(
+                installer, field, getattr(data, field) or ("" if field == "contact_name" else None)
+            )
+    if data.business_name is not None:
+        installer.business_name = data.business_name
+    if data.phone is not None:
+        installer.phone = data.phone
+    if data.coverage_radius_miles is not None:
+        installer.coverage_radius_miles = data.coverage_radius_miles
+    if data.base_postcode is not None and data.base_postcode != installer.base_postcode:
+        await _place(session, installer, data.base_postcode, geocoder)
 
     await session.commit()
-    return installer, outbox
+    return await get_installer(session, installer.id), outbox
+
+
+async def create_installer(
+    session: AsyncSession, data: AdminInstallerCreate, geocoder: Geocoder
+) -> Installer:
+    """A listing added by the team. It has no account: the business can claim it later."""
+    if await find_duplicate(session, data.business_name, data.contact_email):
+        raise FieldValidationError(
+            {"business_name": "A listing with this name or email already exists."}
+        )
+    installer = await build_listing(session, data, geocoder)
+    await session.commit()
+    return await get_installer(session, installer.id)
+
+
+async def find_duplicate(session: AsyncSession, business_name: str, email: str) -> bool:
+    """A listing with this business name or email is already on the platform."""
+    found = await session.scalar(
+        select(Installer.id)
+        .where(
+            or_(
+                func.lower(Installer.business_name) == business_name.lower(),
+                func.lower(Installer.contact_email) == email.lower(),
+            )
+        )
+        .limit(1)
+    )
+    return found is not None
+
+
+async def build_listing(
+    session: AsyncSession, data: AdminInstallerCreate, geocoder: Geocoder
+) -> Installer:
+    """Add (without committing) an unclaimed listing placed at its postcode."""
+    installer = Installer(
+        slug=await installer_service.unique_slug(session, data.business_name),
+        business_name=data.business_name,
+        contact_name=data.contact_name or "",
+        contact_email=data.contact_email,
+        phone=data.phone,
+        description=data.description,
+        coverage_radius_miles=data.coverage_radius_miles,
+        services=[service.value for service in data.services],
+        status=data.status,
+        plan=data.plan,
+        approved_at=utcnow() if data.status is InstallerStatus.APPROVED else None,
+        source=InstallerSource.IMPORTED,
+        accreditations=[
+            InstallerAccreditation(scheme=scheme, verified=False)
+            for scheme in dict.fromkeys(data.accreditations)
+        ],
+    )
+    await _place(session, installer, data.base_postcode, geocoder)
+    installer.areas_covered = [installer.town]
+    session.add(installer)
+    await session.flush()
+    return installer
+
+
+async def _place(
+    session: AsyncSession, installer: Installer, postcode: str, geocoder: Geocoder
+) -> None:
+    """Base the listing at a postcode: its coordinates, town and nearest town page."""
+    place = await installer_service.geocode_or_field_error(geocoder, postcode, "base_postcode")
+    location = await locations.nearest(session, place.latitude, place.longitude)
+    installer.base_postcode = place.postcode
+    installer.latitude = place.latitude
+    installer.longitude = place.longitude
+    installer.town = place.district or location.name
+    installer.location = location
 
 
 async def set_accreditation_verified(
@@ -204,11 +286,15 @@ async def list_quotes(
     offset: int,
     limit: int,
     status: QuoteStatus | None = None,
+    stage: lead_stats.Stage | None = None,
     search: str | None = None,
-) -> tuple[list[QuoteRequest], int]:
+) -> tuple[list[tuple[QuoteRequest, int, int, str]], int]:
+    """Quote requests, newest first, each with (installers matched, quotes sent, stage)."""
     filters: list[ColumnElement[bool]] = []
     if status:
         filters.append(QuoteRequest.status == status)
+    if stage:
+        filters.append(lead_stats.stage_filter(stage))
     if search and search.strip():
         pattern = f"%{_escape_like(search.strip())}%"
         filters.append(
@@ -217,17 +303,44 @@ async def list_quotes(
                 QuoteRequest.postcode.ilike(pattern, escape="\\"),
                 QuoteRequest.email.ilike(pattern, escape="\\"),
                 QuoteRequest.first_name.ilike(pattern, escape="\\"),
+                QuoteRequest.district.ilike(pattern, escape="\\"),
             )
         )
     total = await session.scalar(select(func.count()).select_from(QuoteRequest).where(*filters))
-    quotes = await session.scalars(
-        select(QuoteRequest)
+    rows = await session.execute(
+        select(
+            QuoteRequest,
+            lead_stats.installers_matched(),
+            lead_stats.quotes_sent(),
+            lead_stats.stage(),
+        )
         .where(*filters)
         .order_by(QuoteRequest.created_at.desc(), QuoteRequest.id.desc())
         .offset(offset)
         .limit(limit)
     )
-    return list(quotes), total or 0
+    return [(quote, matched or 0, sent or 0, stage) for quote, matched, sent, stage in rows], (
+        total or 0
+    )
+
+
+async def stage_counts(session: AsyncSession) -> dict[str, int]:
+    """How many requests are at each stage (the Leads & Quotes filter chips)."""
+    stages = select(lead_stats.stage().label("stage")).subquery()
+    rows = await session.execute(select(stages.c.stage, func.count()).group_by(stages.c.stage))
+    counts = {"open": 0, "awaiting": 0, "closed": 0}
+    for stage, count in rows:
+        counts[stage] = count
+    counts["all"] = sum(counts.values())
+    counts["held"] = (
+        await session.scalar(
+            select(func.count())
+            .select_from(QuoteRequest)
+            .where(QuoteRequest.status == QuoteStatus.NEW)
+        )
+        or 0
+    )
+    return counts
 
 
 async def list_contact_messages(
@@ -257,89 +370,138 @@ async def quote_matches(session: AsyncSession, quote_id: uuid.UUID) -> list[Quot
     )
 
 
-async def _counts(
-    session: AsyncSession, column: ColumnElement, *filters: ColumnElement[bool]
-) -> list[CountByKey]:
-    rows = await session.execute(select(column, func.count()).where(*filters).group_by(column))
-    return [CountByKey(key=str(key), count=count) for key, count in rows]
+async def quote_candidates(session: AsyncSession, quote_id: uuid.UUID) -> list[QuoteCandidate]:
+    """Installers the team can send a request to: lead-receiving installers, nearest first.
 
-
-async def _count(session: AsyncSession, model: type, *filters: ColumnElement[bool]) -> int:
-    return await session.scalar(select(func.count()).select_from(model).where(*filters)) or 0
-
-
-async def overview(session: AsyncSession, *, days: int = 30) -> AdminOverview:
-    """The back-office dashboard: headline numbers and the last `days` days of activity."""
-    since = utcnow() - timedelta(days=days)
-    day = cast(QuoteRequest.created_at, Date)
-    daily = await session.execute(
-        select(day, func.count())
-        .where(QuoteRequest.created_at >= since)
-        .group_by(day)
-        .order_by(day)
+    Those whose coverage includes the address come first; the rest are listed by distance
+    so the team can widen the search for an area nobody covers.
+    """
+    quote = await _get_quote(session, quote_id)
+    already = set(
+        await session.scalars(
+            select(QuoteMatch.installer_id).where(QuoteMatch.quote_request_id == quote.id)
+        )
     )
-    enquiry_day = cast(InstallerEnquiry.created_at, Date)
-    daily_enquiries = await session.execute(
-        select(enquiry_day, func.count())
-        .where(InstallerEnquiry.created_at >= since)
-        .group_by(enquiry_day)
-        .order_by(enquiry_day)
+    if quote.latitude is None or quote.longitude is None:
+        found = await session.scalars(
+            select(Installer)
+            .where(*matching.receives_leads())
+            .order_by(Installer.business_name)
+            .limit(_CANDIDATES)
+        )
+        return [_candidate(installer, None, False, installer.id in already) for installer in found]
+    distance = installer_distance_to(quote.latitude, quote.longitude)
+    covers = installer_covers_point(quote.latitude, quote.longitude)
+    rows = await session.execute(
+        select(Installer, distance, covers)
+        .where(*matching.receives_leads())
+        .order_by(covers.desc(), distance, Installer.id)
+        .limit(_CANDIDATES)
     )
-    accepted_value = await session.scalar(
-        select(func.coalesce(func.sum(Offer.amount), 0)).where(Offer.status == OfferStatus.ACCEPTED)
-    )
-    return AdminOverview(
-        period_days=days,
-        installers_total=await _count(session, Installer),
-        installers_by_status=await _counts(session, Installer.status),
-        installers_by_plan=await _counts(
-            session, Installer.plan, Installer.status == InstallerStatus.APPROVED
-        ),
-        installers_by_source=await _counts(session, Installer.source),
-        installers_claimed=await _count(session, Installer, Installer.user_id.is_not(None)),
-        installers_pending=await _count(
-            session, Installer, Installer.status == InstallerStatus.PENDING
-        ),
-        quote_requests_total=await _count(session, QuoteRequest),
-        quote_requests_recent=await _count(session, QuoteRequest, QuoteRequest.created_at >= since),
-        quote_requests_by_status=await _counts(session, QuoteRequest.status),
-        leads_total=await _count(session, QuoteMatch),
-        enquiries_total=await _count(session, InstallerEnquiry),
-        enquiries_recent=await _count(
-            session, InstallerEnquiry, InstallerEnquiry.created_at >= since
-        ),
-        enquiries_for_team=await _count(
-            session, InstallerEnquiry, InstallerEnquiry.sent_to_installer.is_(False)
-        ),
-        conversations_total=await _count(session, Conversation),
-        offers_by_status=await _counts(session, Offer.status),
-        accepted_quote_value=Decimal(accepted_value or 0),
-        reviews_pending=await _count(session, Review, Review.status == ReviewStatus.PENDING),
-        reviews_published=await _count(session, Review, Review.status == ReviewStatus.PUBLISHED),
-        contact_messages_recent=await _count(
-            session, ContactMessage, ContactMessage.created_at >= since
-        ),
-        blog_published=await _count(session, BlogPost, BlogPost.status == BlogPostStatus.PUBLISHED),
-        blog_drafts=await _count(session, BlogPost, BlogPost.status == BlogPostStatus.DRAFT),
-        locations_total=await _count(session, Location),
-        quote_requests_daily=[DailyCount(day=d, count=c) for d, c in daily],
-        enquiries_daily=[DailyCount(day=d, count=c) for d, c in daily_enquiries],
+    return [
+        _candidate(installer, float(miles), bool(inside), installer.id in already)
+        for installer, miles, inside in rows
+    ]
+
+
+_CANDIDATES = 25
+
+
+def _candidate(
+    installer: Installer, miles: float | None, covers: bool, matched: bool
+) -> QuoteCandidate:
+    return QuoteCandidate(
+        id=installer.id,
+        slug=installer.slug,
+        business_name=installer.business_name,
+        town=installer.town,
+        plan=installer.plan,
+        rating_avg=None if installer.rating_avg is None else float(installer.rating_avg),
+        review_count=installer.review_count,
+        distance_miles=None if miles is None else round(miles, 1),
+        covers_address=covers,
+        already_matched=matched,
     )
 
 
-async def platform_info(session: AsyncSession, settings: Settings) -> PlatformInfo:
-    admins = await session.scalars(
-        select(User.email).where(User.role == Role.ADMIN, User.is_active).order_by(User.email)
+async def assign_quote(
+    session: AsyncSession,
+    quote_id: uuid.UUID,
+    installer_ids: Sequence[uuid.UUID],
+    *,
+    max_installers: int,
+) -> tuple[list[QuoteMatch], list[Email]]:
+    """Send a request to installers the team picked (held or unmatched requests, or to add
+    one more). Each installer gets the usual new-lead email; the homeowner is told who."""
+    quote = await _get_quote(session, quote_id, lock=True)
+    already = set(
+        await session.scalars(
+            select(QuoteMatch.installer_id).where(QuoteMatch.quote_request_id == quote.id)
+        )
     )
-    return PlatformInfo(
+    wanted = [
+        installer_id for installer_id in dict.fromkeys(installer_ids) if installer_id not in already
+    ]
+    if not wanted:
+        raise ConflictError("These installers already have this request.", code="already_matched")
+    if len(already) + len(wanted) > max_installers:
+        raise FieldValidationError(
+            {
+                "installer_ids": (
+                    f"A request goes to at most {max_installers} installers "
+                    f"({len(already)} already have it)."
+                )
+            }
+        )
+    found = list(
+        await session.scalars(
+            select(Installer)
+            .where(Installer.id.in_(wanted), *matching.receives_leads())
+            .options(joinedload(Installer.user))
+        )
+    )
+    if len(found) != len(wanted):
+        raise FieldValidationError(
+            {"installer_ids": "Choose approved installers whose plan includes leads."}
+        )
+    added = [QuoteMatch(quote_request=quote, installer=installer) for installer in found]
+    session.add_all(added)
+    quote.status = QuoteStatus.MATCHED
+    await session.commit()
+    outbox: list[Email] = [
+        emails.new_lead(quote, installer, installer.user.email)
+        for installer in found
+        if installer.user is not None
+    ]
+    outbox.append(emails.quote_shared(quote, [installer.business_name for installer in found]))
+    return await quote_matches(session, quote.id), outbox
+
+
+async def get_quote(session: AsyncSession, quote_id: uuid.UUID) -> QuoteRequest:
+    return await _get_quote(session, quote_id)
+
+
+async def _get_quote(
+    session: AsyncSession, quote_id: uuid.UUID, *, lock: bool = False
+) -> QuoteRequest:
+    statement = select(QuoteRequest).where(QuoteRequest.id == quote_id)
+    if lock:
+        statement = statement.with_for_update()
+    quote = await session.scalar(statement)
+    if quote is None:
+        raise NotFoundError("Quote request not found.")
+    return quote
+
+
+def platform_status(settings: Settings) -> PlatformStatus:
+    """What is configured on the server (never the secrets themselves)."""
+    return PlatformStatus(
         environment=settings.environment,
         frontend_url=settings.frontend_url,
         dashboard_url=settings.dashboard_url,
-        support_email=settings.support_email,
         email_configured=settings.smtp_configured,
         image_uploads_configured=settings.cloudinary_configured,
         payments_configured=settings.stripe_configured,
-        max_quote_matches=settings.max_quote_matches,
-        showcase_enabled=not settings.is_production or settings.seed_showcase,
-        admins=list(admins),
+        sms_configured=False,
+        showcase_enabled=settings.seed_showcase,
     )

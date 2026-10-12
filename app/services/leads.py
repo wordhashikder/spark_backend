@@ -9,10 +9,13 @@ from sqlalchemy.orm import joinedload
 from app.core import security
 from app.core.enums import LeadStatus
 from app.core.exceptions import NotFoundError
-from app.models import Installer, QuoteMatch
+from app.models import Conversation, Installer, Offer, QuoteMatch, QuoteRequest
 from app.models.base import utcnow
+from app.schemas.quote import LeadProgress
 from app.services import email as emails
+from app.services import lead_stats
 from app.services.email import Email
+from app.services.geo import distance_miles
 
 
 async def list_for_installer(
@@ -53,3 +56,51 @@ async def update_status(
         outbox.append(emails.review_invitation(lead.quote_request, installer, token))
     await session.commit()
     return lead, outbox
+
+
+async def progress(
+    session: AsyncSession, installer: Installer, leads: list[QuoteMatch]
+) -> dict[uuid.UUID, LeadProgress]:
+    """Progress for a page of the installer's leads, in one query."""
+    if not leads:
+        return {}
+    conversation_id = (
+        select(Conversation.id)
+        .where(Conversation.quote_match_id == QuoteMatch.id)
+        .correlate(QuoteMatch)
+        .scalar_subquery()
+    )
+    my_quote = (
+        select(Offer.status)
+        .join(Conversation, Conversation.id == Offer.conversation_id)
+        .where(Conversation.quote_match_id == QuoteMatch.id)
+        .order_by(Offer.created_at.desc())
+        .limit(1)
+        .correlate(QuoteMatch)
+        .scalar_subquery()
+    )
+    miles = distance_miles(
+        QuoteRequest.latitude, QuoteRequest.longitude, installer.latitude, installer.longitude
+    )
+    rows = await session.execute(
+        select(
+            QuoteMatch.id,
+            lead_stats.installers_matched(),
+            lead_stats.quotes_sent(),
+            miles,
+            conversation_id,
+            my_quote,
+        )
+        .join(QuoteRequest, QuoteRequest.id == QuoteMatch.quote_request_id)
+        .where(QuoteMatch.id.in_([lead.id for lead in leads]))
+    )
+    return {
+        lead_id: LeadProgress(
+            installers_matched=matched or 0,
+            quotes_sent=sent or 0,
+            distance_miles=None if distance is None else round(float(distance), 1),
+            conversation_id=conversation,
+            my_quote_status=status,
+        )
+        for lead_id, matched, sent, distance, conversation, status in rows
+    }

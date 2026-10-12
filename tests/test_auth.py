@@ -73,6 +73,9 @@ async def test_register_verify_login_and_me(
             "plan": "free",
             "subscription_status": "none",
         },
+        "full_name": None,
+        "staff_role": None,
+        "permissions": [],
     }
 
     installer = await db.scalar(select(Installer))

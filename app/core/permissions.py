@@ -1,112 +1,124 @@
-"""The role matrix: who can do what in the Dashboard and the API.
+"""The back office's modules and which staff roles may use them (the role matrix).
 
-Enforced by the route dependencies (`AdminDep`, `InstallerDep` in `app/api/deps.py`) and
-the plan capabilities (`app/core/plans.py`); this table documents those rules for the
-Role Matrix page, so keep it in step when access rules change.
+Every admin API route belongs to a module, worked out from its path, and the admin router
+checks the signed-in team member's role against the matrix before the route runs (see
+`require_admin_access` in `app/api/deps.py`). An admin path that no module claims is
+open to owners only, so a new route is closed until it is mapped here.
+
+Owners can use everything and are not editable. For the other roles, the matrix starts
+from `DEFAULT_ACCESS` and owners change it in the Dashboard (Role Matrix), which stores
+only the cells that differ from these defaults.
 """
 
-from app.core.enums import Role
-from app.schemas.admin import Permission, RoleInfo, RoleMatrix
+from dataclasses import dataclass
 
-_A = [Role.ADMIN]
-_I = [Role.INSTALLER]
-_AI = [Role.ADMIN, Role.INSTALLER]
+from app.core.enums import StaffRole
 
-ROLE_MATRIX = RoleMatrix(
-    roles=[
-        RoleInfo(
-            role=Role.ADMIN,
-            label="Admin",
-            description="PickASparky staff. Runs the marketplace: installers, leads, "
-            "content, reviews and settings.",
-        ),
-        RoleInfo(
-            role=Role.INSTALLER,
-            label="Installer",
-            description="A business with a listing. Manages its own profile; on the Pro and "
-            "Premium plans it also receives leads, messages customers and sends quotes.",
-        ),
-    ],
-    permissions=[
-        Permission(
-            key="dashboard.sign_in", area="Account", label="Sign in to the Dashboard", roles=_AI
-        ),
-        Permission(key="account.password", area="Account", label="Change own password", roles=_AI),
-        Permission(
-            key="profile.edit",
-            area="Profile",
-            label="Edit own business profile, services and areas",
-            roles=_I,
-        ),
-        Permission(
-            key="profile.media",
-            area="Profile",
-            label="Upload logo and gallery photos (plan limits apply)",
-            roles=_I,
-        ),
-        Permission(
-            key="leads.receive",
-            area="Leads",
-            label="Receive matched leads (Pro and Premium)",
-            roles=_I,
-        ),
-        Permission(
-            key="leads.contact",
-            area="Leads",
-            label="See customer contact details (Pro and Premium)",
-            roles=_I,
-        ),
-        Permission(
-            key="quotes.send",
-            area="Quotes & messages",
-            label="Message customers and send quotes (Pro and Premium)",
-            roles=_I,
-        ),
-        Permission(
-            key="quotes.view_all",
-            area="Quotes & messages",
-            label="Read every conversation and quote",
-            roles=_A,
-        ),
-        Permission(
-            key="leads.view_all",
-            area="Leads",
-            label="See every quote request, lead and enquiry",
-            roles=_A,
-        ),
-        Permission(
-            key="installers.moderate",
-            area="Installers",
-            label="Approve, reject, suspend, feature and change plans",
-            roles=_A,
-        ),
-        Permission(
-            key="installers.claim_invite",
-            area="Installers",
-            label="Send claim invitations to free listings",
-            roles=_A,
-        ),
-        Permission(
-            key="accreditations.verify", area="Installers", label="Verify accreditations", roles=_A
-        ),
-        Permission(
-            key="reviews.moderate", area="Content", label="Publish or reject reviews", roles=_A
-        ),
-        Permission(
-            key="blog.manage",
-            area="Content",
-            label="Write, publish and delete blog articles",
-            roles=_A,
-        ),
-        Permission(
-            key="locations.manage",
-            area="SEO & locations",
-            label="Edit location intros, photos and search snippets",
-            roles=_A,
-        ),
-        Permission(key="contact.read", area="Inbox", label="Read contact-form messages", roles=_A),
-        Permission(
-            key="platform.view", area="Settings", label="View platform configuration", roles=_A
-        ),
-    ],
+
+@dataclass(frozen=True, slots=True)
+class Module:
+    key: str
+    label: str
+    description: str
+    # Admin API paths (after `/admin/`) that belong to the module.
+    paths: tuple[str, ...]
+
+
+MODULES: tuple[Module, ...] = (
+    Module("overview", "Overview", "Headline numbers and recent activity.", ("overview",)),
+    Module(
+        "leads",
+        "Leads & Quotes",
+        "Quote requests, who they went to, profile enquiries; sending held requests.",
+        ("quotes", "enquiries"),
+    ),
+    Module(
+        "messages",
+        "Messages",
+        "Every conversation between installers and homeowners; replying as the team.",
+        ("conversations",),
+    ),
+    Module(
+        "installers",
+        "Installers",
+        "Approve, edit plans, add and import listings, claim invitations.",
+        ("installers",),
+    ),
+    Module(
+        "locations",
+        "SEO & Locations",
+        "Location pages: content, search snippets, photos, drafts.",
+        ("locations",),
+    ),
+    Module(
+        "content",
+        "Site content",
+        "Every section, title and description of the public pages.",
+        ("content",),
+    ),
+    Module("blog", "Blog", "Write, schedule and publish articles.", ("blog",)),
+    Module("reviews", "Reviews", "Publish or reject homeowner reviews.", ("reviews",)),
+    Module("inbox", "Contact inbox", "Messages from the contact form.", ("contact-messages",)),
+    Module(
+        "settings",
+        "Settings",
+        "Matching rules, notifications and organisation details.",
+        ("settings", "platform"),
+    ),
+    Module(
+        "team",
+        "Team & roles",
+        "Invite team members, change their roles, edit this matrix (owners only).",
+        ("team", "roles"),
+    ),
 )
+MODULE_KEYS: tuple[str, ...] = tuple(module.key for module in MODULES)
+
+DEFAULT_ACCESS: dict[StaffRole, frozenset[str]] = {
+    StaffRole.OWNER: frozenset(MODULE_KEYS),
+    StaffRole.MANAGER: frozenset(
+        {
+            "overview",
+            "leads",
+            "messages",
+            "installers",
+            "locations",
+            "content",
+            "blog",
+            "reviews",
+            "inbox",
+        }
+    ),
+    StaffRole.EDITOR: frozenset({"overview", "locations", "content", "blog", "reviews"}),
+    StaffRole.SUPPORT: frozenset({"overview", "leads", "messages", "installers", "inbox"}),
+}
+
+ROLE_LABELS: dict[StaffRole, tuple[str, str]] = {
+    StaffRole.OWNER: ("Owner", "Full access, including the team and this matrix."),
+    StaffRole.MANAGER: ("Manager", "Runs the marketplace day to day."),
+    StaffRole.EDITOR: ("Editor", "Looks after the website's content and SEO."),
+    StaffRole.SUPPORT: ("Support", "Helps homeowners and installers."),
+}
+
+# Uploads serve several editors; any one of these modules allows them.
+_SHARED_PATHS: dict[str, frozenset[str]] = {
+    "media": frozenset({"content", "blog", "locations"}),
+    # Every team member may search and see the sidebar counts; results are filtered to
+    # the modules their role allows.
+    "search": frozenset(MODULE_KEYS),
+    "nav": frozenset(MODULE_KEYS),
+}
+
+
+def modules_for_path(admin_path: str) -> frozenset[str] | None:
+    """The modules that grant access to an admin API path (relative to `/admin/`).
+
+    `None` means no module claims the path: owners only.
+    """
+    first = admin_path.strip("/").split("/", 1)[0]
+    if first in _SHARED_PATHS:
+        return _SHARED_PATHS[first]
+    for module in MODULES:
+        if first in module.paths:
+            return frozenset({module.key})
+    return None

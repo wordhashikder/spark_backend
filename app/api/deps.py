@@ -1,5 +1,6 @@
 """Shared FastAPI dependencies: sessions, external services, authentication and pagination."""
 
+import dataclasses
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from typing import Annotated
@@ -8,18 +9,20 @@ from fastapi import BackgroundTasks, Depends, Query, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import security
+from app.core import permissions, security
 from app.core.config import Settings, get_settings
 from app.core.database import get_session
-from app.core.enums import Role
+from app.core.enums import Role, StaffRole
 from app.core.exceptions import ForbiddenError, NotAuthenticatedError, NotFoundError
 from app.core.middleware import MAX_UPLOAD_BYTES
 from app.core.rate_limit import client_ip
 from app.models import Installer, User
-from app.services import installers
+from app.services import installers, platform
+from app.services.access import access_for
 from app.services.billing import BillingGateway
 from app.services.email import Email, EmailSender
 from app.services.geocoding import Geocoder
+from app.services.revalidation import Revalidator
 from app.services.storage import ImageStorage
 
 DEFAULT_PAGE_SIZE = 12
@@ -47,6 +50,25 @@ def get_billing_gateway(request: Request) -> BillingGateway:
     return request.app.state.billing_gateway
 
 
+def get_revalidator(request: Request) -> Revalidator:
+    return request.app.state.revalidator
+
+
+class CacheRefresh:
+    """Refreshes the website's cached pages for some tags after the response is sent."""
+
+    def __init__(
+        self,
+        background_tasks: BackgroundTasks,
+        revalidator: Annotated[Revalidator, Depends(get_revalidator)],
+    ) -> None:
+        self._background_tasks = background_tasks
+        self._revalidator = revalidator
+
+    def __call__(self, *tags: str) -> None:
+        self._background_tasks.add_task(self._revalidator.revalidate, list(tags))
+
+
 def get_client_ip(request: Request, settings: SettingsDep) -> str:
     return client_ip(request, settings)
 
@@ -55,22 +77,46 @@ GeocoderDep = Annotated[Geocoder, Depends(get_geocoder)]
 StorageDep = Annotated[ImageStorage, Depends(get_storage)]
 BillingGatewayDep = Annotated[BillingGateway, Depends(get_billing_gateway)]
 ClientIpDep = Annotated[str, Depends(get_client_ip)]
+CacheRefreshDep = Annotated[CacheRefresh, Depends()]
+
+
+async def get_platform_settings(session: SessionDep) -> platform.PlatformSettings:
+    return await platform.load(session)
+
+
+PlatformSettingsDep = Annotated[platform.PlatformSettings, Depends(get_platform_settings)]
 
 
 class EmailQueue:
-    """Queues emails to be sent after the response (and therefore after the commit)."""
+    """Queues emails to be sent after the response (and therefore after the commit).
+
+    Applies the Settings page on the way out: the platform name as the sender, the support
+    address for team alerts (dropped while email alerts are off) and as the address shown
+    in every email.
+    """
 
     def __init__(
         self,
         background_tasks: BackgroundTasks,
         sender: Annotated[EmailSender, Depends(get_email_sender)],
+        settings: PlatformSettingsDep,
     ) -> None:
         self._background_tasks = background_tasks
         self._sender = sender
+        self._settings = settings
 
     def send(self, emails: Iterable[Email]) -> None:
+        organisation = self._settings.organisation
         for email in emails:
-            self._background_tasks.add_task(self._sender.send, email)
+            if email.team and not self._settings.notifications.email_alerts:
+                continue
+            prepared = dataclasses.replace(
+                email,
+                to=organisation.support_email if email.team else email.to,
+                from_name=email.from_name or organisation.platform_name,
+                context={"support_email": organisation.support_email, **email.context},
+            )
+            self._background_tasks.add_task(self._sender.send, prepared)
 
 
 EmailQueueDep = Annotated[EmailQueue, Depends()]
@@ -137,6 +183,39 @@ def require_role(role: Role) -> Callable[[User], Awaitable[User]]:
 
 
 AdminDep = Annotated[User, Depends(require_role(Role.ADMIN))]
+
+_ADMIN_PATH_MARKER = "/admin/"
+
+
+async def require_admin_access(request: Request, session: SessionDep, user: CurrentUserDep) -> User:
+    """The signed-in team member may use the back-office area this request belongs to.
+
+    The area (module) comes from the path (see `app/core/permissions.py`); the role matrix
+    decides. The modules the member may use are left on `request.state.access`.
+    """
+    if user.role is not Role.ADMIN:
+        raise ForbiddenError
+    access = await access_for(session, user.staff_role)
+    path = request.url.path.split(_ADMIN_PATH_MARKER, 1)[-1]
+    modules = permissions.modules_for_path(path)
+    allowed = user.staff_role is StaffRole.OWNER if modules is None else bool(modules & access)
+    if not allowed:
+        raise ForbiddenError(
+            "Your role does not include this part of the dashboard.", code="module_forbidden"
+        )
+    request.state.access = access
+    return user
+
+
+StaffDep = Annotated[User, Depends(require_admin_access)]
+
+
+def get_access(request: Request) -> frozenset[str]:
+    """The modules the signed-in team member may use (set by `require_admin_access`)."""
+    return getattr(request.state, "access", frozenset())
+
+
+AccessDep = Annotated[frozenset[str], Depends(get_access)]
 
 
 async def require_installer(

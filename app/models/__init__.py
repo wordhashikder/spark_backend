@@ -11,6 +11,12 @@ from app.models.location import Location
 from app.models.quote import QuoteMatch, QuoteRequest
 from app.models.review import Review
 from app.models.seed import SeedBatch
+from app.models.settings import (
+    PlatformSetting,
+    RolePermission,
+    SiteContent,
+    SiteContentRevision,
+)
 from app.models.user import AuthToken, RefreshToken, User
 
 __all__ = [
@@ -26,11 +32,15 @@ __all__ = [
     "InstallerPhoto",
     "Location",
     "Offer",
+    "PlatformSetting",
     "QuoteMatch",
     "QuoteRequest",
     "RefreshToken",
     "Review",
+    "RolePermission",
     "SeedBatch",
+    "SiteContent",
+    "SiteContentRevision",
     "StripeEvent",
     "User",
 ]

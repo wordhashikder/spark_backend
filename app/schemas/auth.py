@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, StringConstraints, field_validator
 
-from app.core.enums import InstallerStatus, Plan, Role, SubscriptionStatus
+from app.core.enums import InstallerStatus, Plan, Role, StaffRole, SubscriptionStatus
 from app.schemas.common import Email, OpaqueToken, Password, Phone, Postcode, text
 
 # Login accepts any string and simply fails to match: malformed input must not be
@@ -76,6 +76,10 @@ class Me(BaseModel):
     role: Role
     email_verified: bool
     installer: MeInstaller | None
+    full_name: str | None = None
+    # Team members only: their staff role and the back-office modules it may use.
+    staff_role: StaffRole | None = None
+    permissions: list[str] = []
 
 
 class AccessToken(BaseModel):

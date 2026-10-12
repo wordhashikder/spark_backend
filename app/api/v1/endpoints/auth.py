@@ -35,7 +35,8 @@ from app.schemas.auth import (
     TokenRequest,
 )
 from app.schemas.common import Message
-from app.services import auth, claims
+from app.schemas.team import InviteAccept, InvitePreview
+from app.services import auth, claims, team
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -256,3 +257,22 @@ async def claim_listing(data: ClaimAccount, session: SessionDep) -> Message:
     """Set a password and take over the listing; then sign in as usual."""
     await claims.claim(session, data.token, data.password)
     return Message(message="Your listing is now yours. Sign in to manage it.")
+
+
+# ---- Joining the team -------------------------------------------------------------------
+
+
+@router.get("/invite", dependencies=[Depends(rate_limit("invite-preview", "30/minute"))])
+async def preview_invite(token: str, session: SessionDep) -> InvitePreview:
+    """Who a team invitation is for (the accept page shows it)."""
+    user = await team.preview_invite(session, token)
+    if user.staff_role is None:  # pragma: no cover - admins always have a staff role
+        raise NotAuthenticatedError
+    return InvitePreview(email=user.email, full_name=user.full_name, staff_role=user.staff_role)
+
+
+@router.post("/accept-invite", dependencies=[Depends(rate_limit("invite-accept", "10/hour"))])
+async def accept_invite(data: InviteAccept, session: SessionDep) -> Message:
+    """Set a password and join the team; then sign in as usual."""
+    await team.accept_invite(session, data.token, data.password, data.full_name)
+    return Message(message="Welcome to the team. Sign in with your email and new password.")

@@ -1,11 +1,16 @@
 """Location and postcode lookup responses, and the admin's location content edits."""
 
+from datetime import datetime
 from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.core.enums import DirectoryColumn
-from app.schemas.common import ImageUrl, blank_as_none, text
+from app.core.exceptions import FieldValueError
+from app.schemas.common import ImageUrl, Postcode, blank_as_none, text
+
+# The page's main text (Markdown): enough room for a full local guide.
+INTRO_MAX_LENGTH = 20000
 
 
 class LocationRef(BaseModel):
@@ -30,6 +35,9 @@ class LocationDetail(LocationSummary):
     # Search snippet overrides; null means the page uses its standard wording.
     seo_title: str | None = None
     seo_description: str | None = None
+    # Heading override; null means "EV Charger Installers in {name}".
+    h1_heading: str | None = None
+    updated_at: datetime | None = None
 
 
 class LocationDirectory(BaseModel):
@@ -66,13 +74,34 @@ class AdminLocation(BaseModel):
     image_credit: str | None
     seo_title: str | None
     seo_description: str | None
+    h1_heading: str | None = None
+    is_published: bool = True
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     installer_count: int = 0
+
+
+class AdminLocationCreate(BaseModel):
+    """A new town page (SEO & Locations → New page)."""
+
+    name: Annotated[str, text(2, 80)]
+    # A postcode near the centre of the town: places the page on the map.
+    postcode: Postcode
+    region: Annotated[Annotated[str, text(2, 80)] | None, blank_as_none] = None
+    # Defaults to the name in lowercase with hyphens.
+    slug: Annotated[Annotated[str, text(2, 80)] | None, blank_as_none] = None
+    is_published: bool = False
 
 
 class AdminLocationUpdate(BaseModel):
     """Partial update: only the fields sent are changed; send `null` to clear one."""
 
-    intro: Annotated[Annotated[str, text(1, 4000)] | None, blank_as_none] = None
+    name: Annotated[str, text(2, 80)] | None = None
+    region: Annotated[str, text(2, 80)] | None = None
+    slug: Annotated[str, text(2, 80)] | None = None
+    is_published: bool | None = None
+    h1_heading: Annotated[Annotated[str, text(1, 120)] | None, blank_as_none] = None
+    intro: Annotated[Annotated[str, text(1, INTRO_MAX_LENGTH)] | None, blank_as_none] = None
     image_url: Annotated[ImageUrl | None, blank_as_none] = None
     image_alt: Annotated[Annotated[str, text(1, 160)] | None, blank_as_none] = None
     image_credit: Annotated[Annotated[str, text(1, 160)] | None, blank_as_none] = None
@@ -83,4 +112,7 @@ class AdminLocationUpdate(BaseModel):
     def _something_to_change(self) -> Self:
         if not self.model_fields_set:
             raise ValueError("Provide at least one field to change.")
+        for name in ("name", "region", "slug", "is_published"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise FieldValueError(name, "This field cannot be empty.")
         return self

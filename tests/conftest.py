@@ -52,7 +52,7 @@ from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 from app.core.database import SessionFactory, engine  # noqa: E402
 from app.main import app as application  # noqa: E402
 from app.models import Base  # noqa: E402
-from app.services import seeding  # noqa: E402
+from app.services import platform, seeding  # noqa: E402
 from tests.helpers import Fakes  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -94,6 +94,7 @@ async def clean_tables(app: FastAPI) -> AsyncIterator[None]:
     )
     async with engine.begin() as connection:
         await connection.execute(text(f"TRUNCATE {tables} CASCADE"))
+    platform.clear_cache()
 
 
 @pytest.fixture

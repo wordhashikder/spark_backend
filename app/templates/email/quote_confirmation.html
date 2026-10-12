@@ -2,7 +2,11 @@
 {% from "_macros.html" import answers_table %}
 {% block content %}
 <p style="margin:0 0 16px;">Hi {{ first_name }},</p>
+{% if shared %}
+<p style="margin:0 0 16px;">Good news about your EV charger quote request <strong>{{ reference }}</strong>: we have found installers for you.</p>
+{% else %}
 <p style="margin:0 0 16px;">Thanks for your EV charger quote request. Your reference is <strong>{{ reference }}</strong>.</p>
+{% endif %}
 {% if installer_names %}
 <p style="margin:0 0 8px;">We have shared your request with:</p>
 <ul style="margin:0 0 16px;padding-left:20px;">
@@ -11,6 +15,8 @@
   {% endfor %}
 </ul>
 <p style="margin:0 0 16px;">They will contact you directly with their quotes.</p>
+{% elif held %}
+<p style="margin:0 0 16px;">Our team is choosing the best local installers for your job. We will email you as soon as your request has been shared with them, usually within one working day.</p>
 {% else %}
 <p style="margin:0 0 16px;">We do not have an installer available in your area just yet. We have saved your request and will be in touch as soon as an installer is available.</p>
 {% endif %}

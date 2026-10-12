@@ -1,6 +1,6 @@
 """Towns and cities that have a landing page."""
 
-from sqlalchemy import Float, SmallInteger, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Float, SmallInteger, String, Text, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.enums import DirectoryColumn
@@ -44,3 +44,8 @@ class Location(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Search snippet overrides set by the admin; blank uses the page's standard wording.
     seo_title: Mapped[str | None] = mapped_column(String(70))
     seo_description: Mapped[str | None] = mapped_column(String(160))
+    # Page heading override; blank uses "EV Charger Installers in {name}".
+    h1_heading: Mapped[str | None] = mapped_column(String(120))
+    # Draft pages are hidden from the public site: lists, the directory, the sitemap and
+    # the page itself. Installers are never attached to a draft location.
+    is_published: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())

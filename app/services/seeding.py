@@ -28,6 +28,7 @@ from app.core.enums import (
     Plan,
     ReviewStatus,
     Role,
+    StaffRole,
 )
 from app.models import (
     BlogPost,
@@ -214,6 +215,7 @@ async def create_admin(session: AsyncSession, email: str, password: str) -> User
         email=email,
         password_hash=await security.hash_password(password),
         role=Role.ADMIN,
+        staff_role=StaffRole.OWNER,
         email_verified_at=utcnow(),
     )
     session.add(admin)
@@ -454,6 +456,8 @@ async def seed_demo(session: AsyncSession) -> int:
             email=DEMO_ADMIN_EMAIL,
             password_hash=await security.hash_password(DEMO_ADMIN_PASSWORD),
             role=Role.ADMIN,
+            staff_role=StaffRole.OWNER,
+            full_name="Demo Admin",
             email_verified_at=now,
         )
     )

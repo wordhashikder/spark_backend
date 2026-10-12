@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Callable
 from typing import Literal
 
-from sqlalchemy import ColumnElement, func, select, tuple_
+from sqlalchemy import ColumnElement, func, or_, select, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
@@ -318,14 +318,69 @@ async def respond_to_offer(
 
 
 async def list_all(
-    session: AsyncSession, *, installer_id: uuid.UUID | None, offset: int, limit: int
+    session: AsyncSession,
+    *,
+    installer_id: uuid.UUID | None,
+    offset: int,
+    limit: int,
+    search: str | None = None,
+    kind: Literal["lead", "enquiry"] | None = None,
 ) -> tuple[list[ConversationSummary], int]:
-    filters = [Conversation.installer_id == installer_id] if installer_id else []
+    """Every conversation (back office), latest activity first."""
+    filters: list[ColumnElement[bool]] = []
+    if installer_id:
+        filters.append(Conversation.installer_id == installer_id)
+    if kind == "lead":
+        filters.append(Conversation.quote_match_id.is_not(None))
+    elif kind == "enquiry":
+        filters.append(Conversation.enquiry_id.is_not(None))
+    if search and search.strip():
+        escaped = search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        filters.append(
+            or_(
+                Conversation.homeowner_name.ilike(pattern, escape="\\"),
+                Conversation.homeowner_email.ilike(pattern, escape="\\"),
+                Conversation.installer_id.in_(
+                    select(Installer.id).where(Installer.business_name.ilike(pattern, escape="\\"))
+                ),
+            )
+        )
     return await _summaries(session, filters, reader="admin", offset=offset, limit=limit)
 
 
 async def get_any(session: AsyncSession, conversation_id: uuid.UUID) -> ConversationDetail:
     return _detail(await _load(session, conversation_id), include_email=True)
+
+
+async def team_message(
+    session: AsyncSession, author: User, conversation_id: uuid.UUID, body: str
+) -> tuple[MessageOut, list[Email]]:
+    """The PickASparky team writes into a conversation. Both sides see it in the thread and
+    are emailed; it does not mark the conversation read for either of them."""
+    conversation = await _load(session, conversation_id, lock=True)
+    message = _add_message(conversation, MessageSender.TEAM, body, author=author)
+    await session.commit()
+    outbox = [
+        emails.conversation_team_message(
+            conversation,
+            body,
+            to=conversation.homeowner_email,
+            audience="homeowner",
+            link=_homeowner_link(conversation),
+        ),
+        *_notify_installer(
+            conversation,
+            lambda to: emails.conversation_team_message(
+                conversation,
+                body,
+                to=to,
+                audience="installer",
+                link=emails.installer_conversation_url(conversation.id),
+            ),
+        ),
+    ]
+    return MessageOut.model_validate(message), outbox
 
 
 # ---- Helpers ---------------------------------------------------------------------------

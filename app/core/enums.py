@@ -21,9 +21,19 @@ class Role(StrEnum):
     ADMIN = "admin"
 
 
+class StaffRole(StrEnum):
+    """What a PickASparky team member (an `admin` account) may do; see `core/permissions.py`."""
+
+    OWNER = "owner"  # everything, including the team and the role matrix
+    MANAGER = "manager"
+    EDITOR = "editor"
+    SUPPORT = "support"
+
+
 class AuthTokenPurpose(StrEnum):
     VERIFY_EMAIL = "verify_email"
     RESET_PASSWORD = "reset_password"  # noqa: S105 - a purpose name, not a credential
+    STAFF_INVITE = "staff_invite"
 
 
 class MessageSender(StrEnum):

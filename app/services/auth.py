@@ -17,11 +17,12 @@ from app.core.exceptions import (
     InvalidTokenError,
     NotAuthenticatedError,
 )
+from app.core.permissions import MODULE_KEYS
 from app.models import AuthToken, RefreshToken, User
 from app.models.base import utcnow
 from app.schemas.auth import Me, MeInstaller, RegisterRequest, TokenPair
+from app.services import access, installers
 from app.services import email as emails
-from app.services import installers
 from app.services.email import Email
 from app.services.geocoding import Geocoder
 
@@ -227,11 +228,19 @@ async def user_for_refresh_token(session: AsyncSession, refresh_token: str) -> U
 
 async def get_profile(session: AsyncSession, user: User) -> Me:
     installer = await installers.get_for_user(session, user.id)
+    modules = (
+        sorted(await access.access_for(session, user.staff_role), key=MODULE_KEYS.index)
+        if user.role is Role.ADMIN
+        else []
+    )
     return Me(
         id=user.id,
         email=user.email,
         role=user.role,
         email_verified=user.email_verified_at is not None,
+        full_name=user.full_name,
+        staff_role=user.staff_role,
+        permissions=modules,
         installer=MeInstaller(
             slug=installer.slug,
             business_name=installer.business_name,

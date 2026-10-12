@@ -2,7 +2,13 @@
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.deps import ClientIpDep, EmailQueueDep, GeocoderDep, SessionDep
+from app.api.deps import (
+    ClientIpDep,
+    EmailQueueDep,
+    GeocoderDep,
+    PlatformSettingsDep,
+    SessionDep,
+)
 from app.core.rate_limit import rate_limit
 from app.schemas.quote import QuoteCreate, QuoteCreated
 from app.services import quotes
@@ -21,9 +27,12 @@ async def create_quote(
     geocoder: GeocoderDep,
     client_ip: ClientIpDep,
     emails: EmailQueueDep,
+    platform: PlatformSettingsDep,
 ) -> QuoteCreated:
     if data.website:
         return quotes.decoy_response(data)
-    created, outbox = await quotes.create_quote(session, data, geocoder, client_ip)
+    created, outbox = await quotes.create_quote(
+        session, data, geocoder, client_ip, platform.lead_matching
+    )
     emails.send(outbox)
     return created

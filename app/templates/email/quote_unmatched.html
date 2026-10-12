@@ -1,11 +1,16 @@
 {% extends "base.html" %}
-{% from "_macros.html" import answers_table %}
+{% from "_macros.html" import answers_table, button %}
 {% block content %}
+{% if held %}
+<p style="margin:0 0 16px;">Quote request <strong>{{ reference }}</strong> is waiting for you: automatic matching is off, so choose its installers in the dashboard.</p>
+{{ button(link, "Choose installers") }}
+{% else %}
 <p style="margin:0 0 16px;">Quote request <strong>{{ reference }}</strong> could not be matched to an installer.</p>
 {% if geocoded %}
 <p style="margin:0 0 16px;">No approved, lead-receiving installer covers this postcode.</p>
 {% else %}
 <p style="margin:0 0 16px;">The postcode could not be geocoded because the lookup service was unavailable, so no matching was attempted.</p>
+{% endif %}
 {% endif %}
 <p style="margin:0 0 8px;"><strong>Customer</strong></p>
 <p style="margin:0 0 16px;">

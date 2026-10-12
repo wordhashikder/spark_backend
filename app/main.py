@@ -23,6 +23,7 @@ from app.core.rate_limit import RateLimiter
 from app.services.billing import build_gateway
 from app.services.email import SmtpEmailSender
 from app.services.geocoding import PostcodesIOGeocoder
+from app.services.revalidation import HttpRevalidator
 from app.services.seeding import demo_postcodes
 from app.services.storage import build_storage
 
@@ -43,6 +44,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.email_sender = SmtpEmailSender(settings)
         app.state.storage = build_storage(settings)
         app.state.billing_gateway = build_gateway(settings)
+        app.state.revalidator = HttpRevalidator(settings)
         app.state.rate_limiter = RateLimiter(
             settings.rate_limit_storage_uri, enabled=settings.rate_limit_enabled
         )

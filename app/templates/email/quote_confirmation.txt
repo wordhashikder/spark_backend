@@ -1,6 +1,10 @@
 Hi {{ first_name }},
 
+{% if shared %}
+Good news about your EV charger quote request {{ reference }}: we have found installers for you.
+{% else %}
 Thanks for your EV charger quote request. Your reference is {{ reference }}.
+{% endif %}
 
 {% if installer_names %}
 We have shared your request with:
@@ -9,6 +13,8 @@ We have shared your request with:
 {% endfor %}
 
 They will contact you directly with their quotes.
+{% elif held %}
+Our team is choosing the best local installers for your job. We will email you as soon as your request has been shared with them, usually within one working day.
 {% else %}
 We do not have an installer available in your area just yet. We have saved your request and will be in touch as soon as an installer is available.
 {% endif %}

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
 from app.core.config import get_settings
-from app.core.enums import InstallerStatus, Plan, ReviewStatus, Role
+from app.core.enums import InstallerStatus, Plan, ReviewStatus, Role, StaffRole
 from app.models import Installer, InstallerAccreditation, Location, Review, User
 from app.models.base import utcnow
 from app.services.email import Email, SmtpEmailSender
@@ -116,24 +116,35 @@ class FakeBillingGateway:
 
 
 @dataclass
+class FakeRevalidator:
+    tags: list[str] = field(default_factory=list)
+
+    async def revalidate(self, tags: list[str]) -> None:
+        self.tags.extend(tags)
+
+
+@dataclass
 class Fakes:
     STATE_NAMES: ClassVar[tuple[str, ...]] = (
         "geocoder",
         "email_sender",
         "storage",
         "billing_gateway",
+        "revalidator",
     )
 
     geocoder: FakeGeocoder = field(default_factory=FakeGeocoder)
     emails: FakeEmailSender = field(default_factory=FakeEmailSender)
     storage: FakeStorage = field(default_factory=FakeStorage)
     billing: FakeBillingGateway = field(default_factory=FakeBillingGateway)
+    revalidator: FakeRevalidator = field(default_factory=FakeRevalidator)
 
     def install(self, app: FastAPI) -> None:
         app.state.geocoder = self.geocoder
         app.state.email_sender = self.emails
         app.state.storage = self.storage
         app.state.billing_gateway = self.billing
+        app.state.revalidator = self.revalidator
 
 
 def auth_headers(user: User) -> dict[str, str]:
@@ -148,11 +159,16 @@ async def create_user(
     role: Role = Role.INSTALLER,
     verified: bool = True,
     active: bool = True,
+    staff_role: StaffRole | None = None,
 ) -> User:
+    """A user; admin accounts are owners unless `staff_role` says otherwise."""
+    if role is Role.ADMIN and staff_role is None:
+        staff_role = StaffRole.OWNER
     user = User(
         email=email or f"user{next(_counter)}@example.com",
         password_hash=PASSWORD_HASH,
         role=role,
+        staff_role=staff_role,
         is_active=active,
         email_verified_at=utcnow() if verified else None,
     )

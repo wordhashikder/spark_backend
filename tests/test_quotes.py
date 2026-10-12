@@ -40,7 +40,12 @@ async def test_quote_is_matched_by_plan_then_distance(
     assert response.status_code == 201
     body = response.json()
     assert re.fullmatch(r"PAS-[A-HJ-KM-NP-Z2-9]{6}", body["reference"])
-    assert body == {"reference": body["reference"], "postcode": "M1 1AA", "matched_installers": 4}
+    assert body == {
+        "reference": body["reference"],
+        "postcode": "M1 1AA",
+        "matched_installers": 4,
+        "held": False,
+    }
 
     expected = ["Premium Manchester", "Premium Stockport", "Pro Salford", "Pro Stockport"]
     assert await _matched_names(db) == expected
@@ -246,7 +251,7 @@ async def test_honeypot_submissions_look_successful_but_store_nothing(
     )
     assert response.status_code == 201
     assert re.fullmatch(r"PAS-[A-Z2-9]{6}", response.json()["reference"])
-    assert set(response.json()) == {"reference", "postcode", "matched_installers"}
+    assert set(response.json()) == {"reference", "postcode", "matched_installers", "held"}
     assert await db.scalar(select(func.count()).select_from(QuoteRequest)) == 0
     assert fakes.emails.sent == []
 

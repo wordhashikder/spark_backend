@@ -6,17 +6,26 @@ from datetime import datetime
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, Uuid, true
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.enums import AuthTokenPurpose, Role
+from app.core.enums import AuthTokenPurpose, Role, StaffRole
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, pg_enum
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "users"
-    __table_args__ = (CheckConstraint("email = lower(email)", name="email_lowercase"),)
+    __table_args__ = (
+        CheckConstraint("email = lower(email)", name="email_lowercase"),
+        # Every admin account is a team member with a staff role; installers have none.
+        CheckConstraint(
+            "(role = 'admin') = (staff_role IS NOT NULL)", name="staff_role_for_admins"
+        ),
+    )
 
     email: Mapped[str] = mapped_column(String(254), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(pg_enum(Role, "user_role"))
+    staff_role: Mapped[StaffRole | None] = mapped_column(pg_enum(StaffRole, "staff_role"))
+    # Shown in the Dashboard (team list, top bar); optional for installers.
+    full_name: Mapped[str | None] = mapped_column(String(80))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

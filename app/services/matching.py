@@ -10,7 +10,7 @@ from app.models import Installer
 from app.services.geo import installer_covers_point, installer_distance_to
 
 
-def _receives_leads() -> tuple:
+def receives_leads() -> tuple:
     """SQL filters selecting approved installers whose effective plan receives leads.
 
     A listing nobody has claimed yet has no one to send leads to, whatever its plan.
@@ -27,7 +27,7 @@ async def count_in_range(session: AsyncSession, latitude: float, longitude: floa
     count = await session.scalar(
         select(func.count())
         .select_from(Installer)
-        .where(*_receives_leads(), installer_covers_point(latitude, longitude))
+        .where(*receives_leads(), installer_covers_point(latitude, longitude))
     )
     return count or 0
 
@@ -48,12 +48,13 @@ async def match_installers(
     longitude: float,
     target: Installer | None,
     limit: int,
+    nearby: bool = True,
 ) -> list[Installer]:
     """Pick the installers to receive a quote request.
 
     A requested installer that accepts direct quotes always comes first. The rest are
     lead-receiving installers whose coverage circle contains the point, best plan first,
-    then nearest, then highest rated.
+    then nearest, then highest rated. `nearby=False` sends only to the requested installer.
     """
     matched: list[Installer] = []
     if (
@@ -64,11 +65,11 @@ async def match_installers(
         matched.append(target)
 
     remaining = limit - len(matched)
-    if remaining > 0:
+    if nearby and remaining > 0:
         nearby = await session.scalars(
             select(Installer)
             .where(
-                *_receives_leads(),
+                *receives_leads(),
                 installer_covers_point(latitude, longitude),
                 Installer.id.not_in([installer.id for installer in matched]),
             )

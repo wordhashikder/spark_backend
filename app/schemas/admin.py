@@ -2,12 +2,12 @@
 
 import uuid
 from datetime import date, datetime
-from decimal import Decimal
 from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.enums import (
+    AccreditationScheme,
     ChargerFollowup,
     ChargerLocation,
     ContactSubject,
@@ -20,13 +20,20 @@ from app.core.enums import (
     Plan,
     QuoteStatus,
     ReviewStatus,
-    Role,
+    Service,
     SubscriptionStatus,
     Timing,
 )
+from app.core.exceptions import FieldValueError
 from app.models import Installer, QuoteMatch, Review
-from app.schemas.common import Email, blank_as_none
+from app.models.installer import (
+    DEFAULT_COVERAGE_RADIUS_MILES,
+    MAX_COVERAGE_RADIUS_MILES,
+    MIN_COVERAGE_RADIUS_MILES,
+)
+from app.schemas.common import Email, Phone, Postcode, blank_as_none, text
 from app.schemas.installer import Accreditation
+from app.services.platform import PlatformSettings
 
 
 class AdminInstaller(BaseModel):
@@ -54,6 +61,9 @@ class AdminInstaller(BaseModel):
     accreditations: list[Accreditation]
     created_at: datetime
     approved_at: datetime | None
+    description: str | None = None
+    services: list[str] = []
+    coverage_radius_miles: int = 15
 
     @classmethod
     def from_installer(cls, installer: Installer) -> Self:
@@ -81,24 +91,84 @@ class AdminInstaller(BaseModel):
             accreditations=installer.accreditations,
             created_at=installer.created_at,
             approved_at=installer.approved_at,
+            description=installer.description,
+            services=list(installer.services),
+            coverage_radius_miles=installer.coverage_radius_miles,
         )
 
 
+_REQUIRED_WHEN_SENT = (
+    "status",
+    "plan",
+    "is_featured",
+    "business_name",
+    "phone",
+    "base_postcode",
+    "coverage_radius_miles",
+)
+
+
 class AdminInstallerUpdate(BaseModel):
+    """Partial update by the team; only the fields sent change."""
+
     status: InstallerStatus | None = None
     plan: Plan | None = None
     is_featured: bool | None = None
     # The business email a listing can be claimed with; `null` clears it.
     contact_email: Annotated[Email | None, blank_as_none] = None
+    business_name: Annotated[str, text(2, 120)] | None = None
+    contact_name: Annotated[Annotated[str, text(2, 80)] | None, blank_as_none] = None
+    phone: Phone | None = None
+    description: Annotated[Annotated[str, text(1, 4000)] | None, blank_as_none] = None
+    base_postcode: Postcode | None = None
+    coverage_radius_miles: int | None = Field(
+        default=None, ge=MIN_COVERAGE_RADIUS_MILES, le=MAX_COVERAGE_RADIUS_MILES
+    )
 
     @model_validator(mode="after")
     def _something_to_change(self) -> Self:
-        if not self.model_fields_set or (
-            "contact_email" not in self.model_fields_set
-            and all(getattr(self, name) is None for name in ("status", "plan", "is_featured"))
-        ):
-            raise ValueError("Provide at least one of status, plan, is_featured or contact_email.")
+        if not self.model_fields_set:
+            raise ValueError("Provide at least one field to change.")
+        for name in _REQUIRED_WHEN_SENT:
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise FieldValueError(name, "This field cannot be empty.")
         return self
+
+
+class AdminInstallerCreate(BaseModel):
+    """A listing added by the team (Add installer). It has no account until claimed."""
+
+    business_name: Annotated[str, text(2, 120)]
+    contact_name: Annotated[Annotated[str, text(2, 80)] | None, blank_as_none] = None
+    contact_email: Email
+    phone: Phone
+    description: Annotated[Annotated[str, text(1, 4000)] | None, blank_as_none] = None
+    accreditations: list[AccreditationScheme] = Field(default_factory=list, max_length=6)
+    services: list[Service] = Field(
+        default_factory=lambda: [Service.EV_CHARGER_INSTALLATION], min_length=1
+    )
+    base_postcode: Postcode
+    coverage_radius_miles: int = Field(
+        default=DEFAULT_COVERAGE_RADIUS_MILES,
+        ge=MIN_COVERAGE_RADIUS_MILES,
+        le=MAX_COVERAGE_RADIUS_MILES,
+    )
+    status: InstallerStatus = InstallerStatus.APPROVED
+    plan: Plan = Plan.FREE
+
+
+class ImportRowError(BaseModel):
+    row: int
+    business_name: str | None
+    message: str
+
+
+class ImportReport(BaseModel):
+    dry_run: bool
+    rows: int
+    created: int
+    skipped: list[ImportRowError]
+    errors: list[ImportRowError]
 
 
 class AccreditationVerification(BaseModel):
@@ -166,6 +236,12 @@ class AdminQuote(BaseModel):
     phone: str | None
     target_installer_id: uuid.UUID | None
     created_at: datetime
+    # Progress (see `services/lead_stats.py`).
+    stage: str = "open"
+    installers_matched: int = 0
+    quotes_sent: int = 0
+    # The most installers a request goes to (Settings), for "3 of 5".
+    max_installers: int = 5
 
 
 class AdminContactMessage(BaseModel):
@@ -206,65 +282,128 @@ class CountByKey(BaseModel):
     count: int
 
 
-class DailyCount(BaseModel):
-    day: date
-    count: int
+class Kpi(BaseModel):
+    value: float
+    # Change against the previous period, in percent; null when there is nothing to compare.
+    change: float | None
+    hint: str
+
+
+class MonthlyPoint(BaseModel):
+    month: date
+    leads: int
+    quotes: int
+
+
+class RecentLead(BaseModel):
+    id: uuid.UUID
+    reference: str
+    first_name: str
+    installation_type: InstallationType
+    postcode: str
+    district: str | None
+    created_at: datetime
+    installers_matched: int
+    quotes_sent: int
+    max_installers: int
+    stage: str
 
 
 class AdminOverview(BaseModel):
     period_days: int
-    installers_total: int
-    installers_by_status: list[CountByKey]
-    installers_by_plan: list[CountByKey]
-    installers_by_source: list[CountByKey]
-    installers_claimed: int
+    leads: Kpi
+    active_installers: Kpi
+    quotes_sent: Kpi
+    match_rate: Kpi
+    monthly: list[MonthlyPoint]
+    leads_by_area: list[CountByKey]
+    recent_leads: list[RecentLead]
+    # Things waiting for the team.
+    held_leads: int
+    unmatched_leads: int
     installers_pending: int
-    quote_requests_total: int
-    quote_requests_recent: int
-    quote_requests_by_status: list[CountByKey]
-    leads_total: int
-    enquiries_total: int
-    enquiries_recent: int
-    enquiries_for_team: int
-    conversations_total: int
-    offers_by_status: list[CountByKey]
-    accepted_quote_value: Decimal
     reviews_pending: int
-    reviews_published: int
+    enquiries_for_team: int
     contact_messages_recent: int
-    blog_published: int
-    blog_drafts: int
-    locations_total: int
-    quote_requests_daily: list[DailyCount]
-    enquiries_daily: list[DailyCount]
 
 
-class Permission(BaseModel):
-    key: str
-    area: str
-    label: str
-    roles: list[Role]
+class NavCounts(BaseModel):
+    """Badges in the Dashboard's sidebar (only for modules the member may use)."""
+
+    leads: int | None = None
+    installers: int | None = None
+    reviews: int | None = None
+    inbox: int | None = None
 
 
-class RoleInfo(BaseModel):
-    role: Role
-    label: str
-    description: str
+class SearchHit(BaseModel):
+    kind: str  # installer | lead | location | conversation
+    id: str
+    title: str
+    subtitle: str
+    # Dashboard route to open the hit.
+    href: str
 
 
-class RoleMatrix(BaseModel):
-    roles: list[RoleInfo]
-    permissions: list[Permission]
+class SearchResults(BaseModel):
+    query: str
+    hits: list[SearchHit]
 
 
-class PlatformInfo(BaseModel):
+class PlatformStatus(BaseModel):
+    """Configuration status for the Settings page. Never includes secrets."""
+
     environment: str
     frontend_url: str
     dashboard_url: str
-    support_email: str
     email_configured: bool
     image_uploads_configured: bool
     payments_configured: bool
-    max_quote_matches: int
+    sms_configured: bool
     showcase_enabled: bool
-    admins: list[str]
+
+
+class QuoteCandidate(BaseModel):
+    """An installer the team could send a quote request to."""
+
+    id: uuid.UUID
+    slug: str
+    business_name: str
+    town: str
+    plan: Plan
+    rating_avg: float | None
+    review_count: int
+    # Null when the request's postcode could not be located.
+    distance_miles: float | None
+    covers_address: bool
+    already_matched: bool
+
+
+class QuoteAssign(BaseModel):
+    installer_ids: list[uuid.UUID] = Field(min_length=1, max_length=20)
+
+
+class StageCounts(BaseModel):
+    all: int
+    open: int
+    awaiting: int
+    closed: int
+    # Waiting for the team to choose installers (automatic matching off).
+    held: int
+
+
+class TeamMessageCreate(BaseModel):
+    body: Annotated[str, text(1, 4000)]
+
+
+class AdminSettings(BaseModel):
+    """The Settings page: editable platform settings and the server's configuration."""
+
+    settings: PlatformSettings
+    status: PlatformStatus
+
+
+class MediaUpload(BaseModel):
+    """An image uploaded for page content (hero images, cards...)."""
+
+    url: str

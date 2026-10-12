@@ -1,21 +1,34 @@
 """Location queries (listing with installer counts, the directory, nearest-location lookup)
-and the admin's management of each location's intro and photo."""
+and the admin's management of location pages: adding them, drafts, content and photo.
+
+Draft locations (`is_published = false`) are invisible to the public site: lists, the
+directory, the page itself and the sitemap (built from the list). Installers are never
+attached to a draft, so publishing or unpublishing a page never moves anyone.
+"""
+
+import re
 
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import DirectoryColumn, InstallerStatus
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import FieldValidationError, NotFoundError
 from app.models import Installer, Location
 from app.schemas.location import (
+    AdminLocationCreate,
     AdminLocationUpdate,
     LocationDetail,
     LocationDirectory,
     LocationRef,
     LocationSummary,
 )
+from app.services import installers as installer_service
 from app.services.geo import distance_miles, installer_covers_point
+from app.services.geocoding import Geocoder
 from app.services.storage import ImageStorage, discard_quietly, validate_image
+
+_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_PUBLISHED = Location.is_published.is_(True)
 
 
 def installer_serves_location(location: Location) -> ColumnElement[bool]:
@@ -45,7 +58,8 @@ def _installer_count() -> ColumnElement[int]:
 
 
 async def get_by_slug(session: AsyncSession, slug: str) -> Location:
-    location = await session.scalar(select(Location).where(Location.slug == slug))
+    """A published location (the public site's view)."""
+    location = await session.scalar(select(Location).where(Location.slug == slug, _PUBLISHED))
     if location is None:
         raise NotFoundError("Location not found.")
     return location
@@ -53,7 +67,9 @@ async def get_by_slug(session: AsyncSession, slug: str) -> Location:
 
 async def list_with_counts(session: AsyncSession) -> list[LocationSummary]:
     rows = await session.execute(
-        select(Location, _installer_count().label("installer_count")).order_by(Location.name)
+        select(Location, _installer_count().label("installer_count"))
+        .where(_PUBLISHED)
+        .order_by(Location.name)
     )
     return [
         LocationSummary(
@@ -72,7 +88,7 @@ async def get_detail(session: AsyncSession, slug: str) -> LocationDetail:
     row = (
         await session.execute(
             select(Location, _installer_count().label("installer_count")).where(
-                Location.slug == slug
+                Location.slug == slug, _PUBLISHED
             )
         )
     ).one_or_none()
@@ -92,6 +108,8 @@ async def get_detail(session: AsyncSession, slug: str) -> LocationDetail:
         image_credit=location.image_credit,
         seo_title=location.seo_title,
         seo_description=location.seo_description,
+        h1_heading=location.h1_heading,
+        updated_at=location.updated_at,
     )
 
 
@@ -100,7 +118,7 @@ async def get_directory(session: AsyncSession) -> LocationDirectory:
     page, each in its set order. A location has at most one slot, so none is listed twice."""
     listed = await session.scalars(
         select(Location)
-        .where(Location.directory_column.is_not(None))
+        .where(Location.directory_column.is_not(None), _PUBLISHED)
         .order_by(Location.directory_position, Location.name)
     )
     columns: dict[DirectoryColumn, list[LocationRef]] = {column: [] for column in DirectoryColumn}
@@ -115,9 +133,10 @@ async def get_directory(session: AsyncSession) -> LocationDirectory:
 
 
 async def nearest(session: AsyncSession, latitude: float, longitude: float) -> Location:
-    """The location closest to a point (every installer is attached to one)."""
+    """The published location closest to a point (every installer is attached to one)."""
     location = await session.scalar(
         select(Location)
+        .where(_PUBLISHED)
         .order_by(distance_miles(Location.latitude, Location.longitude, latitude, longitude))
         .limit(1)
     )
@@ -126,7 +145,7 @@ async def nearest(session: AsyncSession, latitude: float, longitude: float) -> L
     return location
 
 
-# ---- Admin: intro and photo ---------------------------------------------------------
+# ---- Admin: pages, drafts, content and photo -----------------------------------------
 
 
 async def list_all(session: AsyncSession) -> list[Location]:
@@ -148,12 +167,44 @@ async def _get_for_update(session: AsyncSession, slug: str) -> Location:
     return location
 
 
+async def create(session: AsyncSession, data: AdminLocationCreate, geocoder: Geocoder) -> Location:
+    """Add a town page, centred on a postcode. It starts as a draft unless published now."""
+    place = await installer_service.geocode_or_field_error(geocoder, data.postcode, "postcode")
+    slug = data.slug or installer_service.slugify(data.name, fallback="location")
+    await _check_slug(session, slug)
+    if await session.scalar(
+        select(Location.id).where(func.lower(Location.name) == data.name.lower())
+    ):
+        raise FieldValidationError({"name": "A page for this town already exists."})
+    location = Location(
+        slug=slug,
+        name=data.name,
+        region=data.region or place.region or "United Kingdom",
+        latitude=place.latitude,
+        longitude=place.longitude,
+        is_published=data.is_published,
+    )
+    session.add(location)
+    await session.commit()
+    return location
+
+
 async def update_content(
     session: AsyncSession, slug: str, data: AdminLocationUpdate, storage: ImageStorage
 ) -> Location:
-    """Change the fields that were sent. A new or cleared `image_url` releases an uploaded photo."""
+    """Change the fields that were sent. A new or cleared `image_url` releases an uploaded photo.
+
+    The address (slug) can change only while the page is a draft, so published links and
+    search results never break.
+    """
     location = await _get_for_update(session, slug)
     changes = data.model_dump(include=data.model_fields_set)
+    if "slug" in changes and changes["slug"] != location.slug:
+        if location.is_published:
+            raise FieldValidationError({"slug": "Unpublish the page before changing its address."})
+        await _check_slug(session, changes["slug"])
+    elif "slug" in changes:
+        changes.pop("slug")
     replaced_public_id = None
     if "image_url" in changes and changes["image_url"] != location.image_url:
         replaced_public_id = location.image_public_id
@@ -163,6 +214,15 @@ async def update_content(
     await session.commit()
     await discard_quietly(storage, replaced_public_id)
     return location
+
+
+async def _check_slug(session: AsyncSession, slug: str) -> None:
+    if not _SLUG.fullmatch(slug) or len(slug) > 80:
+        raise FieldValidationError(
+            {"slug": "Use lowercase letters, numbers and single hyphens (e.g. st-albans)."}
+        )
+    if await session.scalar(select(Location.id).where(Location.slug == slug)):
+        raise FieldValidationError({"slug": "Another page already uses this address."})
 
 
 async def set_image(

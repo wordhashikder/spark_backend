@@ -121,8 +121,14 @@ async def list_leads(
         session, installer, offset=page.offset, limit=page.page_size
     )
     reveal_contact = capabilities_for(installer.plan).receives_leads
+    progress = await leads.progress(session, installer, found)
     return Paginated.build(
-        [Lead.from_match(lead, reveal_contact=reveal_contact) for lead in found],
+        [
+            Lead.from_match(lead, reveal_contact=reveal_contact).model_copy(
+                update={"progress": progress.get(lead.id)}
+            )
+            for lead in found
+        ],
         total=total,
         page=page.page,
         page_size=page.page_size,

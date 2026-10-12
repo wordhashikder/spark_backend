@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ name }},</p>
+<p style="margin:0 0 16px;">The PickASparky team has added a message to your conversation with {{ other_party }}:</p>
+<p style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #0a9b53;background:#f5f8fb;white-space:pre-wrap;">{{ body }}</p>
+{{ button(link, "Open the conversation") }}
+<p style="margin:0;">You can reply on the same page; everyone in the conversation sees it.</p>
+{% endblock %}

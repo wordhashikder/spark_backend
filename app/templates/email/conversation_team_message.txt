@@ -1,0 +1,12 @@
+Hi {{ name }},
+
+The PickASparky team has added a message to your conversation with {{ other_party }}:
+
+{{ body }}
+
+Open the conversation: {{ link }}
+
+You can reply on the same page; everyone in the conversation sees it.
+
+PickASparky
+{{ support_email }}
