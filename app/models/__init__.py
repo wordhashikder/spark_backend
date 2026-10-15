@@ -5,6 +5,7 @@ from app.models.billing import StripeEvent
 from app.models.blog import BlogPost
 from app.models.contact import ContactMessage
 from app.models.conversation import Conversation, ConversationMessage, Offer
+from app.models.customer import Customer, CustomerLoginLink, CustomerSession
 from app.models.enquiry import InstallerEnquiry
 from app.models.installer import Installer, InstallerAccreditation, InstallerPhoto
 from app.models.location import Location
@@ -26,6 +27,9 @@ __all__ = [
     "ContactMessage",
     "Conversation",
     "ConversationMessage",
+    "Customer",
+    "CustomerLoginLink",
+    "CustomerSession",
     "Installer",
     "InstallerAccreditation",
     "InstallerEnquiry",

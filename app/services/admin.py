@@ -4,7 +4,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import ColumnElement, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -16,34 +16,43 @@ from app.core.enums import (
     Plan,
     QuoteStatus,
     ReviewStatus,
+    Role,
+    SubscriptionStatus,
 )
 from app.core.exceptions import ConflictError, FieldValidationError, NotFoundError
 from app.models import (
     ContactMessage,
+    Customer,
     Installer,
     InstallerAccreditation,
+    InstallerPhoto,
     QuoteMatch,
     QuoteRequest,
     Review,
+    User,
 )
 from app.models.base import utcnow
 from app.schemas.admin import (
     AdminInstallerCreate,
     AdminInstallerUpdate,
+    AdminReviewCreate,
+    AdminReviewUpdate,
     PlatformStatus,
     QuoteCandidate,
 )
+from app.services import customers, lead_stats, locations, matching, profiles, reviews
 from app.services import email as emails
 from app.services import installers as installer_service
-from app.services import lead_stats, locations, matching, reviews
 from app.services.email import Email
 from app.services.geo import installer_covers_point, installer_distance_to
 from app.services.geocoding import Geocoder
+from app.services.storage import ImageStorage, discard_quietly, validate_image
 
 _INSTALLER_DETAILS = (
     joinedload(Installer.user),
     joinedload(Installer.location),
     selectinload(Installer.accreditations),
+    selectinload(Installer.photos),
 )
 
 
@@ -142,11 +151,26 @@ async def update_installer(
         installer.plan = data.plan
     if data.is_featured is not None:
         installer.is_featured = data.is_featured
-    for field in ("contact_email", "contact_name", "description"):
+    for field in (
+        "contact_email",
+        "contact_name",
+        "description",
+        "tagline",
+        "website_url",
+        "company_number",
+    ):
         if field in data.model_fields_set:
             setattr(
                 installer, field, getattr(data, field) or ("" if field == "contact_name" else None)
             )
+    if "years_experience" in data.model_fields_set:
+        installer.years_experience = data.years_experience
+    if data.services is not None:
+        installer.services = [service.value for service in data.services]
+    if data.areas_covered is not None:
+        installer.areas_covered = list(data.areas_covered)
+    if data.accreditations is not None:
+        installer_service.replace_accreditations(installer, data.accreditations)
     if data.business_name is not None:
         installer.business_name = data.business_name
     if data.phone is not None:
@@ -211,7 +235,8 @@ async def build_listing(
         ],
     )
     await _place(session, installer, data.base_postcode, geocoder)
-    installer.areas_covered = [installer.town]
+    installer.areas_covered = []
+    await profiles.fill_listing(session, installer)
     session.add(installer)
     await session.flush()
     return installer
@@ -258,26 +283,83 @@ async def list_reviews(
     return list(found), total or 0
 
 
-async def moderate_review(
-    session: AsyncSession, review_id: uuid.UUID, status: ReviewStatus
-) -> Review:
-    """Publish or reject a review and bring the installer's rating summary up to date."""
+async def _get_review(session: AsyncSession, review_id: uuid.UUID) -> Review:
     review = await session.scalar(
         select(Review)
         .where(Review.id == review_id)
         .options(joinedload(Review.installer))
         .with_for_update(of=Review)
+        .execution_options(populate_existing=True)
     )
     if review is None:
         raise NotFoundError("Review not found.")
-    if status is not review.status:
-        review.status = status
-        if status is ReviewStatus.PUBLISHED:
-            review.published_at = utcnow()
-        await session.flush()
-        await reviews.recompute_rating(session, review.installer_id)
-    await session.commit()
     return review
+
+
+async def _installer_exists(session: AsyncSession, installer_id: uuid.UUID) -> None:
+    if await session.scalar(select(Installer.id).where(Installer.id == installer_id)) is None:
+        raise FieldValidationError({"installer_id": "Choose an installer from the list."})
+
+
+async def moderate_review(
+    session: AsyncSession, review_id: uuid.UUID, data: AdminReviewUpdate
+) -> Review:
+    """Publish, reject or edit a review and bring the installers' rating summaries up to date.
+
+    Moving a review to another installer updates both installers' ratings.
+    """
+    review = await _get_review(session, review_id)
+    affected = {review.installer_id}
+    if data.installer_id is not None and data.installer_id != review.installer_id:
+        await _installer_exists(session, data.installer_id)
+        review.installer_id = data.installer_id
+        affected.add(data.installer_id)
+    for name in ("rating", "title", "body", "author_name"):
+        value = getattr(data, name)
+        if value is not None:
+            setattr(review, name, value)
+    if "author_location" in data.model_fields_set:
+        review.author_location = data.author_location
+    if data.status is not None and data.status is not review.status:
+        review.status = data.status
+        if data.status is ReviewStatus.PUBLISHED and review.published_at is None:
+            review.published_at = utcnow()
+    await session.flush()
+    for installer_id in affected:
+        await reviews.recompute_rating(session, installer_id)
+    await session.commit()
+    return await _get_review(session, review_id)
+
+
+async def create_review(session: AsyncSession, data: AdminReviewCreate) -> Review:
+    """Add a review by hand. It is not marked "verified": no completed job backs it."""
+    await _installer_exists(session, data.installer_id)
+    review = Review(
+        installer_id=data.installer_id,
+        rating=data.rating,
+        title=data.title,
+        body=data.body,
+        author_name=data.author_name,
+        author_location=data.author_location,
+        status=data.status,
+        published_at=utcnow() if data.status is ReviewStatus.PUBLISHED else None,
+    )
+    session.add(review)
+    await session.flush()
+    await reviews.recompute_rating(session, data.installer_id)
+    await session.commit()
+    return await _get_review(session, review.id)
+
+
+async def delete_review(session: AsyncSession, review_id: uuid.UUID) -> uuid.UUID:
+    """Remove a review for good; returns its installer so the caller can refresh pages."""
+    review = await _get_review(session, review_id)
+    installer_id = review.installer_id
+    await session.delete(review)
+    await session.flush()
+    await reviews.recompute_rating(session, installer_id)
+    await session.commit()
+    return installer_id
 
 
 async def list_quotes(
@@ -467,13 +549,19 @@ async def assign_quote(
     added = [QuoteMatch(quote_request=quote, installer=installer) for installer in found]
     session.add_all(added)
     quote.status = QuoteStatus.MATCHED
+    link = None
+    customer = await session.get(Customer, quote.customer_id) if quote.customer_id else None
+    if customer is not None:
+        link = customers.link_url(await customers.issue_link(session, customer))
     await session.commit()
     outbox: list[Email] = [
         emails.new_lead(quote, installer, installer.user.email)
         for installer in found
         if installer.user is not None
     ]
-    outbox.append(emails.quote_shared(quote, [installer.business_name for installer in found]))
+    outbox.append(
+        emails.quote_shared(quote, [installer.business_name for installer in found], link=link)
+    )
     return await quote_matches(session, quote.id), outbox
 
 
@@ -505,3 +593,81 @@ def platform_status(settings: Settings) -> PlatformStatus:
         sms_configured=False,
         showcase_enabled=settings.seed_showcase,
     )
+
+
+async def set_installer_logo(
+    session: AsyncSession, installer_id: uuid.UUID, data: bytes, storage: ImageStorage
+) -> Installer:
+    installer = await _get_installer(session, installer_id)
+    await installer_service.set_logo(session, installer, data, storage)
+    return await get_installer(session, installer_id)
+
+
+async def remove_installer_logo(
+    session: AsyncSession, installer_id: uuid.UUID, storage: ImageStorage
+) -> Installer:
+    installer = await _get_installer(session, installer_id)
+    previous = installer.logo_public_id
+    installer.logo_url = None
+    installer.logo_public_id = None
+    await session.commit()
+    if previous:
+        await discard_quietly(storage, previous)
+    return await get_installer(session, installer_id)
+
+
+async def add_installer_photo(
+    session: AsyncSession,
+    installer_id: uuid.UUID,
+    data: bytes,
+    alt: str | None,
+    storage: ImageStorage,
+) -> Installer:
+    """Add a gallery photo. The team is not held to the installer's plan limit."""
+    installer = await _get_installer(session, installer_id)
+    validate_image(data)
+    stored = await storage.upload(data, folder="gallery")
+    installer.photos.append(
+        InstallerPhoto(
+            url=stored.url,
+            public_id=stored.public_id,
+            alt=alt,
+            position=max((photo.position for photo in installer.photos), default=-1) + 1,
+        )
+    )
+    await session.commit()
+    return await get_installer(session, installer_id)
+
+
+async def delete_installer_photo(
+    session: AsyncSession, installer_id: uuid.UUID, photo_id: uuid.UUID, storage: ImageStorage
+) -> Installer:
+    installer = await _get_installer(session, installer_id)
+    await installer_service.delete_photo(session, installer, photo_id, storage)
+    return await get_installer(session, installer_id)
+
+
+async def delete_installer(
+    session: AsyncSession, installer_id: uuid.UUID, storage: ImageStorage
+) -> None:
+    """Remove a listing for good, with its reviews, enquiries, quotes and messages.
+
+    The installer's login goes with it. A business that is still paying is refused: cancel
+    its subscription first so it is not billed for a listing that no longer exists.
+    """
+    installer = await _get_installer(session, installer_id)
+    if installer.subscription_status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE):
+        raise ConflictError(
+            "This installer has a live subscription. Cancel it in Stripe first, "
+            "or set the listing to Suspended instead."
+        )
+    public_ids = [photo.public_id for photo in installer.photos if photo.public_id]
+    if installer.logo_public_id:
+        public_ids.append(installer.logo_public_id)
+    user_id = installer.user_id
+    await session.execute(delete(Installer).where(Installer.id == installer_id))
+    if user_id is not None:
+        await session.execute(delete(User).where(User.id == user_id, User.role == Role.INSTALLER))
+    await session.commit()
+    for public_id in public_ids:
+        await discard_quietly(storage, public_id)

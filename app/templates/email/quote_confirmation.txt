@@ -19,6 +19,12 @@ Our team is choosing the best local installers for your job. We will email you a
 We do not have an installer available in your area just yet. We have saved your request and will be in touch as soon as an installer is available.
 {% endif %}
 
+{% if link %}
+View your quotes, messages and request status (no password needed):
+{{ link }}
+This secure link signs you in automatically and works for {{ hours }} hours.
+
+{% endif %}
 Here is what you told us:
 {% for question, answer in answers %}
 {{ question }}: {{ answer }}

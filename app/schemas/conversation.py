@@ -129,6 +129,10 @@ class ConversationSummary(BaseModel):
             and last.sender in (other, MessageSender.TEAM)
             and (read_at is None or last.created_at > read_at)
         )
+        if reader == "homeowner" and not unread and offers:
+            # A new quote from the installer is news even when it came without a message.
+            newest = offers[-1].created_at
+            unread = read_at is None or newest > read_at
         return cls(
             id=conversation.id,
             installer_id=conversation.installer_id,

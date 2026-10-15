@@ -74,6 +74,10 @@ class QuoteRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         index=True,
     )
     ip_hash: Mapped[str] = mapped_column(String(64), index=True)
+    # The customer record (one per email address) that owns this request.
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("customers.id", ondelete="SET NULL"), index=True
+    )
 
 
 class QuoteMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):

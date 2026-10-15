@@ -91,6 +91,8 @@ class LeadProgress(BaseModel):
     # Installers the request went to, and quotes they have sent (withdrawn ones excluded).
     installers_matched: int = 0
     quotes_sent: int = 0
+    # How many installers may quote one request (Settings), so cards can say "2 slots left".
+    slots_total: int = 5
     # From the installer's base to the job (null when the postcode was not located).
     distance_miles: float | None = None
     # The installer's own conversation and latest quote for this lead, if any.

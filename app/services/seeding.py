@@ -43,7 +43,7 @@ from app.models import (
 from app.models.base import utcnow
 from app.models.installer import DEFAULT_COVERAGE_RADIUS_MILES
 from app.schemas.blog import BlogPostCreate
-from app.services import blog, installers, reviews
+from app.services import blog, installers, profiles, reviews
 from app.services.geocoding import GeocodedPostcode
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -51,6 +51,9 @@ DEMO_EMAIL_DOMAIN = "demo.pickasparky.test"
 DEMO_ADMIN_EMAIL = f"admin@{DEMO_EMAIL_DOMAIN}"
 DEMO_ADMIN_PASSWORD = "DemoAdmin123!"  # noqa: S105 - published demo credential, never production
 DEMO_INSTALLER_PASSWORD = "DemoPass123!"  # noqa: S105 - published demo credential, never production
+# The only showcase profiles that get a demo login (to try the installer Dashboard). Every
+# other showcase profile stays an unclaimed listing, like the imported directory.
+DEMO_ACTIVE_INSTALLERS = ("GreenCharge Electrical", "VoltWise Electrical", "ChargeRight Solutions")
 
 
 class SeedingError(Exception):
@@ -253,15 +256,6 @@ async def _existing_business_names(session: AsyncSession) -> set[str]:
     return set(await session.scalars(select(func.lower(Installer.business_name))))
 
 
-def _listing_description(name: str, locality: str | None, postcode: str, town: str) -> str:
-    based = locality if locality and locality.lower() != town.lower() else town
-    district = postcode.split(" ")[0]
-    return (
-        f"{name} is an electrical business based in {based} ({district}), listed on "
-        f"PickASparky for EV charger installation in {town} and the surrounding area."
-    )
-
-
 async def insert_listings(session: AsyncSession) -> int:
     """The client's directory of EV installers (`data/listings.json`) as free basic listings.
 
@@ -279,16 +273,28 @@ async def insert_listings(session: AsyncSession) -> int:
             continue
         location = locations[entry["location"]]
         address = ", ".join(part for part in (entry["street_address"], entry["locality"]) if part)
+        profile = profiles.build(
+            business_name=name,
+            town=location.name,
+            locality=entry["locality"],
+            postcode=entry["postcode"],
+            nearby=profiles.nearby_names(
+                list(locations.values()),
+                latitude=location.latitude,
+                longitude=location.longitude,
+                home=location.name,
+                radius=DEFAULT_COVERAGE_RADIUS_MILES,
+            ),
+            radius=DEFAULT_COVERAGE_RADIUS_MILES,
+        )
         session.add(
             Installer(
                 slug=await installers.unique_slug(session, name),
                 business_name=name,
                 contact_name="",
                 phone=entry["phone"] or "",
-                tagline=f"EV charger installation in {location.name}",
-                description=_listing_description(
-                    name, entry["locality"], entry["postcode"], location.name
-                ),
+                tagline=profile.tagline,
+                description=profile.description,
                 base_postcode=entry["postcode"],
                 # The listing serves its town: it is placed at the town's centre.
                 latitude=location.latitude,
@@ -297,7 +303,7 @@ async def insert_listings(session: AsyncSession) -> int:
                 location=location,
                 coverage_radius_miles=DEFAULT_COVERAGE_RADIUS_MILES,
                 services=["ev_charger_installation"],
-                areas_covered=[location.name],
+                areas_covered=profile.areas_covered,
                 status=InstallerStatus.APPROVED,
                 plan=Plan.FREE,
                 approved_at=now,
@@ -392,6 +398,51 @@ async def insert_showcase(session: AsyncSession) -> int:
     return len(created)
 
 
+async def enrich_listing_profiles(session: AsyncSession) -> int:
+    """Give the directory listings a full profile (see `services/profiles.py`).
+
+    Only listings nobody has touched are changed: still unclaimed, still on the generated
+    one-line description, and their areas still just their town. Anything a person wrote,
+    or a business entered after claiming, is left exactly as it is. No commit.
+    """
+    locations = list((await _locations_by_slug(session)).values())
+    rows = await session.scalars(
+        select(Installer).where(
+            Installer.source == InstallerSource.IMPORTED,
+            Installer.user_id.is_(None),
+            Installer.description.is_not(None),
+        )
+    )
+    # Street address as imported: "27 Craven Road, Broadheath"; the locality follows the comma.
+    changed = 0
+    for installer in rows:
+        if not profiles.is_generated_stub(installer.description):
+            continue
+        if installer.areas_covered not in ([], [installer.town]):
+            continue
+        locality = (installer.address or "").rsplit(",", 1)[-1].strip() or None
+        profile = profiles.build(
+            business_name=installer.business_name,
+            town=installer.town,
+            locality=locality,
+            postcode=installer.base_postcode,
+            nearby=profiles.nearby_names(
+                locations,
+                latitude=installer.latitude,
+                longitude=installer.longitude,
+                home=installer.town,
+                radius=installer.coverage_radius_miles,
+            ),
+            radius=installer.coverage_radius_miles,
+        )
+        installer.tagline = profile.tagline
+        installer.description = profile.description
+        installer.areas_covered = profile.areas_covered
+        changed += 1
+    await session.flush()
+    return changed
+
+
 def _showcase_allowed() -> bool:
     settings = get_settings()
     return not settings.is_production or settings.seed_showcase
@@ -404,6 +455,7 @@ CONTENT_BATCHES: tuple[ContentBatch, ...] = (
     ("blog-articles-2026-10", _insert_blog_samples, lambda: True),
     ("directory-listings-2026-10", insert_listings, lambda: True),
     ("showcase-installers-2026-10", insert_showcase, _showcase_allowed),
+    ("directory-profiles-2026-10b", enrich_listing_profiles, lambda: True),
 )
 _SEED_LOCK = 4_242_001  # pg_advisory_xact_lock key: one seeder at a time
 
@@ -443,9 +495,10 @@ async def purge_demo(session: AsyncSession) -> int:
 
 
 async def seed_demo(session: AsyncSession) -> int:
-    """Demo logins for development: the demo admin, and an account for every showcase
-    profile (`<slug>@demo.pickasparky.test`). Loads the showcase profiles if missing.
-    Returns how many showcase profiles have a demo account."""
+    """Demo logins for development: the demo admin and an installer account for each of the
+    `DEMO_ACTIVE_INSTALLERS` (`<slug>@demo.pickasparky.test`). Every other showcase profile
+    is left unclaimed. Loads the showcase profiles if missing and can be re-run at any time.
+    Returns how many installer accounts were created."""
     _require_non_production()
     await purge_demo(session)
     await insert_showcase(session)
@@ -461,9 +514,10 @@ async def seed_demo(session: AsyncSession) -> int:
             email_verified_at=now,
         )
     )
-    names = [entry["business_name"] for entry in _load("demo.json")["installers"]]
     showcase = await session.scalars(
-        select(Installer).where(Installer.business_name.in_(names), Installer.user_id.is_(None))
+        select(Installer).where(
+            Installer.business_name.in_(DEMO_ACTIVE_INSTALLERS), Installer.user_id.is_(None)
+        )
     )
     password_hash = await security.hash_password(DEMO_INSTALLER_PASSWORD)
     claimed = 0

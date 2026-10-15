@@ -32,10 +32,13 @@ from app.core.enums import (
     Plan,
     QuoteStatus,
     ReviewStatus,
+    StaffRole,
 )
+from app.core.exceptions import ForbiddenError
 from app.schemas.admin import (
     AccreditationVerification,
     AdminContactMessage,
+    AdminCustomer,
     AdminInstaller,
     AdminInstallerCreate,
     AdminInstallerUpdate,
@@ -43,6 +46,7 @@ from app.schemas.admin import (
     AdminQuote,
     AdminQuoteMatch,
     AdminReview,
+    AdminReviewCreate,
     AdminReviewUpdate,
     AdminSettings,
     ImportReport,
@@ -73,6 +77,7 @@ from app.services import (
     claims,
     content,
     conversations,
+    customers,
     enquiries,
     insights,
     installer_import,
@@ -347,6 +352,77 @@ async def update_installer(
     return AdminInstaller.from_installer(installer)
 
 
+@router.delete("/installers/{installer_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_installer(
+    installer_id: uuid.UUID,
+    session: SessionDep,
+    storage: StorageDep,
+    refresh: CacheRefreshDep,
+    user: StaffDep,
+) -> None:
+    """Remove a listing and everything attached to it (reviews, enquiries, conversations).
+
+    Permanent, so only owners and managers may do it (Support can suspend instead).
+    """
+    if user.staff_role not in (StaffRole.OWNER, StaffRole.MANAGER):
+        raise ForbiddenError("Only owners and managers can delete an installer.")
+    await admin.delete_installer(session, installer_id, storage)
+    refresh(*_INSTALLER_PAGES, "reviews")
+
+
+@router.post("/installers/{installer_id}/logo")
+async def upload_installer_logo(
+    installer_id: uuid.UUID,
+    session: SessionDep,
+    storage: StorageDep,
+    refresh: CacheRefreshDep,
+    file: Annotated[UploadFile, File()],
+) -> AdminInstaller:
+    installer = await admin.set_installer_logo(
+        session, installer_id, await read_upload(file), storage
+    )
+    refresh("installers")
+    return AdminInstaller.from_installer(installer)
+
+
+@router.delete("/installers/{installer_id}/logo")
+async def delete_installer_logo(
+    installer_id: uuid.UUID, session: SessionDep, storage: StorageDep, refresh: CacheRefreshDep
+) -> AdminInstaller:
+    installer = await admin.remove_installer_logo(session, installer_id, storage)
+    refresh("installers")
+    return AdminInstaller.from_installer(installer)
+
+
+@router.post("/installers/{installer_id}/photos", status_code=status.HTTP_201_CREATED)
+async def upload_installer_photo(
+    installer_id: uuid.UUID,
+    session: SessionDep,
+    storage: StorageDep,
+    refresh: CacheRefreshDep,
+    file: Annotated[UploadFile, File()],
+    alt: AltForm = None,
+) -> AdminInstaller:
+    installer = await admin.add_installer_photo(
+        session, installer_id, await read_upload(file), (alt or "").strip() or None, storage
+    )
+    refresh("installers")
+    return AdminInstaller.from_installer(installer)
+
+
+@router.delete("/installers/{installer_id}/photos/{photo_id}")
+async def delete_installer_photo(
+    installer_id: uuid.UUID,
+    photo_id: uuid.UUID,
+    session: SessionDep,
+    storage: StorageDep,
+    refresh: CacheRefreshDep,
+) -> AdminInstaller:
+    installer = await admin.delete_installer_photo(session, installer_id, photo_id, storage)
+    refresh("installers")
+    return AdminInstaller.from_installer(installer)
+
+
 @router.patch("/installers/{installer_id}/accreditations/{scheme}")
 async def verify_accreditation(
     installer_id: uuid.UUID,
@@ -378,13 +454,32 @@ async def list_reviews(
     )
 
 
+@router.post("/reviews", status_code=status.HTTP_201_CREATED)
+async def create_review(
+    data: AdminReviewCreate, session: SessionDep, refresh: CacheRefreshDep
+) -> AdminReview:
+    """Add a review by hand (published unless `status` says otherwise)."""
+    review = await admin.create_review(session, data)
+    refresh("reviews", "installers")
+    return AdminReview.from_review(review)
+
+
 @router.patch("/reviews/{review_id}")
 async def moderate_review(
     review_id: uuid.UUID, data: AdminReviewUpdate, session: SessionDep, refresh: CacheRefreshDep
 ) -> AdminReview:
-    review = await admin.moderate_review(session, review_id, data.status)
+    """Publish, reject or edit a review."""
+    review = await admin.moderate_review(session, review_id, data)
     refresh("reviews", "installers")
     return AdminReview.from_review(review)
+
+
+@router.delete("/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_review(
+    review_id: uuid.UUID, session: SessionDep, refresh: CacheRefreshDep
+) -> None:
+    await admin.delete_review(session, review_id)
+    refresh("reviews", "installers")
 
 
 # ---- Leads & quotes -----------------------------------------------------------------------
@@ -585,6 +680,15 @@ async def update_location(
     return AdminLocation.model_validate(location)
 
 
+@router.delete("/locations/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_location(
+    slug: str, session: SessionDep, storage: StorageDep, refresh: CacheRefreshDep
+) -> None:
+    """Delete a draft page that has no installers."""
+    await locations.delete(session, slug, storage)
+    refresh(*_LOCATION_PAGES)
+
+
 @router.post("/locations/{slug}/image")
 async def upload_location_image(
     slug: str,
@@ -695,3 +799,31 @@ async def delete_blog_cover(
     post = await blog.remove_cover(session, post_id, storage)
     refresh("blog")
     return AdminBlogPost.model_validate(post)
+
+
+# ---- Customers ------------------------------------------------------------------------
+
+
+@router.get("/customers")
+async def list_customers(
+    session: SessionDep, page: PageDep, q: SearchQuery = None
+) -> Paginated[AdminCustomer]:
+    items, total = await customers.admin_list(
+        session, search=q, offset=page.offset, limit=page.page_size
+    )
+    return Paginated.build(items, total=total, page=page.page, page_size=page.page_size)
+
+
+@router.post("/customers/{customer_id}/magic-link", status_code=status.HTTP_202_ACCEPTED)
+async def send_customer_link(
+    customer_id: uuid.UUID, session: SessionDep, emails: EmailQueueDep
+) -> Message:
+    """Email the homeowner a fresh sign-in link (for when they cannot find the first)."""
+    emails.send(await customers.admin_send_link(session, customer_id))
+    return Message(message="Sign-in link sent.")
+
+
+@router.delete("/customers/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_customer(customer_id: uuid.UUID, session: SessionDep) -> None:
+    """Erase a customer record on request. Their quote requests stay as lead history."""
+    await customers.erase(session, await customers.admin_get(session, customer_id))

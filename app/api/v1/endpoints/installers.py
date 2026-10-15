@@ -13,6 +13,7 @@ from app.api.deps import (
     GeocoderDep,
     InstallerDep,
     PageDep,
+    PlatformSettingsDep,
     SessionDep,
     StorageDep,
     read_upload,
@@ -40,7 +41,7 @@ from app.schemas.installer import (
     InstallerUpdate,
     Photo,
 )
-from app.schemas.quote import Lead, LeadUpdate
+from app.schemas.quote import Lead, LeadProgress, LeadUpdate
 from app.schemas.review import ReviewOut
 from app.services import claims, conversations, dashboard, enquiries, installers, leads, reviews
 
@@ -113,19 +114,29 @@ async def delete_photo(
     await installers.delete_photo(session, installer, photo_id, storage)
 
 
+def _with_slots(progress: LeadProgress | None, slots: int) -> LeadProgress | None:
+    if progress is None:
+        return None
+    return progress.model_copy(update={"slots_total": max(slots, progress.installers_matched)})
+
+
 @router.get("/me/leads")
 async def list_leads(
-    installer: InstallerDep, session: SessionDep, page: PageDep
+    installer: InstallerDep,
+    session: SessionDep,
+    page: PageDep,
+    platform_settings: PlatformSettingsDep,
 ) -> Paginated[Lead]:
     found, total = await leads.list_for_installer(
         session, installer, offset=page.offset, limit=page.page_size
     )
     reveal_contact = capabilities_for(installer.plan).receives_leads
     progress = await leads.progress(session, installer, found)
+    slots = platform_settings.lead_matching.max_installers
     return Paginated.build(
         [
             Lead.from_match(lead, reveal_contact=reveal_contact).model_copy(
-                update={"progress": progress.get(lead.id)}
+                update={"progress": _with_slots(progress.get(lead.id), slots)}
             )
             for lead in found
         ],

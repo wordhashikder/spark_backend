@@ -86,6 +86,14 @@ class Coverage(BaseModel):
     radius_miles: int
 
 
+class CoverImage(BaseModel):
+    """The town's photo, shown behind a profile that has no photos of its own."""
+
+    url: str
+    alt: str | None
+    credit: str | None
+
+
 class InstallerCard(BaseModel):
     slug: str
     business_name: str
@@ -116,6 +124,10 @@ class InstallerDetail(InstallerCard):
     coverage: Coverage
     photos: list[Photo]
     accepts_direct_quotes: bool
+    # "M20": where the business is based, without the full postcode.
+    postcode_district: str
+    listed_since: datetime | None
+    cover_image: CoverImage | None
 
     @classmethod
     def from_installer(cls, installer: Installer) -> Self:
@@ -192,6 +204,17 @@ def _profile_fields(installer: Installer) -> dict[str, object]:
         "tagline": installer.tagline,
         "description": installer.description,
         "years_experience": installer.years_experience,
+        "postcode_district": installer.base_postcode.split(" ")[0],
+        "listed_since": installer.approved_at,
+        "cover_image": (
+            CoverImage(
+                url=installer.location.image_url,
+                alt=installer.location.image_alt,
+                credit=installer.location.image_credit,
+            )
+            if installer.location.image_url
+            else None
+        ),
         "coverage": Coverage(
             latitude=installer.latitude,
             longitude=installer.longitude,

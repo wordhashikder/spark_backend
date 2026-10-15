@@ -440,3 +440,33 @@ def bullets(key: str, label: str, default: list[str], *, max_length: int = 120) 
         min_items=1,
         max_items=12,
     )
+
+
+def closing_section() -> Section:
+    """An optional free-form block shown above the "Find installers" footer of a page.
+
+    Everything defaults to empty, and the website renders nothing until a title or body is
+    written, so adding it to a page changes nothing until someone uses it.
+    """
+    return section(
+        "closing",
+        "Closing section",
+        text("eyebrow", "Small heading above the title", "", max_length=60, required=False),
+        text("title", "Title", "", max_length=120, required=False),
+        markdown(
+            "body",
+            "Text",
+            "",
+            max_length=20_000,
+            rows=12,
+            required=False,
+            help="Headings, lists, bold, italics and links. Leave the title and text empty to "
+            "hide the section.",
+        ),
+        image("image", "Photo", "", required=False),
+        text("image_alt", "Photo description (alt text)", "", max_length=160, required=False),
+        text("button_label", "Button text", "", max_length=40, required=False),
+        link("button_link", "Button link", "", required=False),
+        help="An optional section between the reviews and the list of towns. "
+        "It stays hidden while it is empty.",
+    )

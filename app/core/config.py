@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=15, ge=1)
     refresh_token_expire_days: int = Field(default=30, ge=1)
 
+    # Customer magic links and the session they start (see services/customers.py).
+    magic_link_expire_minutes: int = Field(default=24 * 60, ge=5)
+    customer_session_idle_days: int = Field(default=30, ge=1)
+    customer_session_max_days: int = Field(default=90, ge=1)
+
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_username: str | None = None

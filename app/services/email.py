@@ -5,6 +5,7 @@ transaction has committed. Sending never raises into a request.
 """
 
 import logging
+import re
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ from app.core.config import Settings, get_settings
 from app.models import (
     ContactMessage,
     Conversation,
+    Customer,
     Installer,
     InstallerEnquiry,
     Offer,
@@ -118,12 +120,37 @@ class SmtpEmailSender:
             logger.error("SMTP is not configured; dropped %r email", email.template)
             return
         body = message.get_body(preferencelist=("plain",))
+        saved = self._save_to_dev_outbox(email, message)
         logger.info(
-            "SMTP is not configured; email not sent.\nTo: %s\nSubject: %s\n\n%s",
+            "SMTP is not configured; email not sent%s.\nTo: %s\nSubject: %s\n\n%s",
+            f" (open {saved} in a browser to read it)" if saved else "",
             email.to,
             email.subject,
             body.get_content() if body else "",
         )
+
+    @staticmethod
+    def _save_to_dev_outbox(email: Email, message: EmailMessage) -> Path | None:
+        """Development only: keep an unsent email as an HTML file in `dev-outbox/`.
+
+        Without an SMTP server nothing reaches a real inbox; this lets a developer open the
+        email (magic link, claim invitation...) and click its buttons. Never used in
+        production, where bodies carry sign-in links and are not stored.
+        """
+        html = message.get_body(preferencelist=("html",))
+        if html is None:
+            return None
+        try:
+            folder = Path("dev-outbox")
+            folder.mkdir(exist_ok=True)
+            stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f")
+            recipient = re.sub(r"[^a-z0-9]+", "-", email.to.lower()).strip("-")
+            path = folder / f"{stamp}-{email.template}-{recipient}.html"
+            path.write_text(html.get_content(), encoding="utf-8")
+        except OSError:
+            logger.warning("Could not write the development outbox", exc_info=True)
+            return None
+        return path.resolve()
 
 
 def quote_summary(quote: QuoteRequest) -> list[tuple[str, str]]:
@@ -207,8 +234,26 @@ def installer_rejected(installer: Installer, to: str) -> Email:
     )
 
 
+def magic_link(customer: Customer, link: str) -> Email:
+    """Passwordless sign-in to the customer's quote dashboard."""
+    return Email(
+        to=customer.email,
+        subject="Your secure link to view your quotes",
+        template="magic_link",
+        context={
+            "first_name": customer.first_name,
+            "link": link,
+            "hours": get_settings().magic_link_expire_minutes // 60,
+        },
+    )
+
+
 def quote_confirmation(
-    quote: QuoteRequest, installer_names: Sequence[str], *, held: bool = False
+    quote: QuoteRequest,
+    installer_names: Sequence[str],
+    *,
+    held: bool = False,
+    link: str | None = None,
 ) -> Email:
     """Sent on every request. `held`: automatic matching is off, so the team chooses."""
     return Email(
@@ -222,11 +267,15 @@ def quote_confirmation(
             "installer_names": list(installer_names),
             "held": held,
             "shared": False,
+            "link": link,
+            "hours": get_settings().magic_link_expire_minutes // 60,
         },
     )
 
 
-def quote_shared(quote: QuoteRequest, installer_names: Sequence[str]) -> Email:
+def quote_shared(
+    quote: QuoteRequest, installer_names: Sequence[str], *, link: str | None = None
+) -> Email:
     """The team sent a held or unmatched request to installers."""
     return Email(
         to=quote.email,
@@ -239,6 +288,8 @@ def quote_shared(quote: QuoteRequest, installer_names: Sequence[str]) -> Email:
             "installer_names": list(installer_names),
             "held": False,
             "shared": True,
+            "link": link,
+            "hours": get_settings().magic_link_expire_minutes // 60,
         },
     )
 

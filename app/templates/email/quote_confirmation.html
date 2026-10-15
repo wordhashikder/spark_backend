@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import answers_table %}
+{% from "_macros.html" import answers_table, button %}
 {% block content %}
 <p style="margin:0 0 16px;">Hi {{ first_name }},</p>
 {% if shared %}
@@ -19,6 +19,11 @@
 <p style="margin:0 0 16px;">Our team is choosing the best local installers for your job. We will email you as soon as your request has been shared with them, usually within one working day.</p>
 {% else %}
 <p style="margin:0 0 16px;">We do not have an installer available in your area just yet. We have saved your request and will be in touch as soon as an installer is available.</p>
+{% endif %}
+{% if link %}
+<p style="margin:0 0 4px;">Your quotes, messages and the status of your request all live in one private place. No password needed.</p>
+{{ button(link, "View My Quotes") }}
+<p style="margin:0 0 16px;font-size:13px;color:#5b6b7d;">This secure link signs you in automatically and works for {{ hours }} hours. After that, you can ask for a new one at any time.</p>
 {% endif %}
 <p style="margin:0;">Here is what you told us:</p>
 {{ answers_table(answers) }}

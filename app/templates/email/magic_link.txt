@@ -1,0 +1,10 @@
+Hi {{ first_name }},
+
+Here is your secure link to your PickASparky quotes. One click signs you in. No password needed.
+
+{{ link }}
+
+The link works for {{ hours }} hours. If you did not ask for it, you can ignore this email: nobody can see your quotes without it.
+
+PickASparky
+{{ support_email }}

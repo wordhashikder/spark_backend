@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from app.core.enums import (
     AccreditationScheme,
@@ -32,7 +32,15 @@ from app.models.installer import (
     MIN_COVERAGE_RADIUS_MILES,
 )
 from app.schemas.common import Email, Phone, Postcode, blank_as_none, text
-from app.schemas.installer import Accreditation
+from app.schemas.installer import (
+    MAX_AREAS_COVERED,
+    Accreditation,
+    AccreditationInput,
+    CompanyNumber,
+    Photo,
+    WebsiteUrl,
+    _unique,
+)
 from app.services.platform import PlatformSettings
 
 
@@ -64,6 +72,13 @@ class AdminInstaller(BaseModel):
     description: str | None = None
     services: list[str] = []
     coverage_radius_miles: int = 15
+    tagline: str | None = None
+    website_url: str | None = None
+    company_number: str | None = None
+    years_experience: int | None = None
+    areas_covered: list[str] = []
+    logo_url: str | None = None
+    photos: list[Photo] = []
 
     @classmethod
     def from_installer(cls, installer: Installer) -> Self:
@@ -94,6 +109,13 @@ class AdminInstaller(BaseModel):
             description=installer.description,
             services=list(installer.services),
             coverage_radius_miles=installer.coverage_radius_miles,
+            tagline=installer.tagline,
+            website_url=installer.website_url,
+            company_number=installer.company_number,
+            years_experience=installer.years_experience,
+            areas_covered=list(installer.areas_covered),
+            logo_url=installer.logo_url,
+            photos=sorted(installer.photos, key=lambda photo: photo.position),
         )
 
 
@@ -105,6 +127,9 @@ _REQUIRED_WHEN_SENT = (
     "phone",
     "base_postcode",
     "coverage_radius_miles",
+    "services",
+    "areas_covered",
+    "accreditations",
 )
 
 
@@ -124,6 +149,22 @@ class AdminInstallerUpdate(BaseModel):
     coverage_radius_miles: int | None = Field(
         default=None, ge=MIN_COVERAGE_RADIUS_MILES, le=MAX_COVERAGE_RADIUS_MILES
     )
+    tagline: Annotated[Annotated[str, text(1, 120)] | None, blank_as_none] = None
+    website_url: Annotated[WebsiteUrl | None, blank_as_none] = None
+    company_number: Annotated[CompanyNumber | None, blank_as_none] = None
+    years_experience: int | None = Field(default=None, ge=0, le=80)
+    services: Annotated[list[Service], AfterValidator(_unique), Field(min_length=1)] | None = None
+    areas_covered: (
+        Annotated[
+            list[Annotated[str, text(1, 80)]],
+            Field(max_length=MAX_AREAS_COVERED),
+            AfterValidator(_unique),
+        ]
+        | None
+    ) = None
+    accreditations: list[AccreditationInput] | None = Field(
+        default=None, max_length=len(AccreditationScheme)
+    )
 
     @model_validator(mode="after")
     def _something_to_change(self) -> Self:
@@ -132,6 +173,9 @@ class AdminInstallerUpdate(BaseModel):
         for name in _REQUIRED_WHEN_SENT:
             if name in self.model_fields_set and getattr(self, name) is None:
                 raise FieldValueError(name, "This field cannot be empty.")
+        schemes = [item.scheme for item in self.accreditations or []]
+        if len(schemes) != len(set(schemes)):
+            raise FieldValueError("accreditations", "Each accreditation can only be listed once.")
         return self
 
 
@@ -210,7 +254,36 @@ class AdminReview(BaseModel):
 
 
 class AdminReviewUpdate(BaseModel):
-    status: ReviewStatus
+    """Moderate or edit a review; only the fields sent change."""
+
+    status: ReviewStatus | None = None
+    rating: int | None = Field(default=None, ge=1, le=5)
+    title: Annotated[str, text(3, 80)] | None = None
+    body: Annotated[str, text(10, 1500)] | None = None
+    author_name: Annotated[str, text(2, 60)] | None = None
+    author_location: Annotated[Annotated[str, text(1, 60)] | None, blank_as_none] = None
+    installer_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> Self:
+        if not self.model_fields_set:
+            raise ValueError("Provide at least one field to change.")
+        for name in ("status", "rating", "title", "body", "author_name", "installer_id"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise FieldValueError(name, "This field cannot be empty.")
+        return self
+
+
+class AdminReviewCreate(BaseModel):
+    """A review added by the team (for example one received by phone or email)."""
+
+    installer_id: uuid.UUID
+    rating: int = Field(ge=1, le=5)
+    title: Annotated[str, text(3, 80)]
+    body: Annotated[str, text(10, 1500)]
+    author_name: Annotated[str, text(2, 60)]
+    author_location: Annotated[Annotated[str, text(1, 60)] | None, blank_as_none] = None
+    status: ReviewStatus = ReviewStatus.PUBLISHED
 
 
 class AdminQuote(BaseModel):
@@ -407,3 +480,17 @@ class MediaUpload(BaseModel):
     """An image uploaded for page content (hero images, cards...)."""
 
     url: str
+
+
+class AdminCustomer(BaseModel):
+    """A homeowner's customer record, with how much they have done."""
+
+    id: uuid.UUID
+    email: str
+    first_name: str
+    phone: str | None
+    created_at: datetime
+    last_login_at: datetime | None
+    requests: int
+    conversations: int
+    quotes_received: int

@@ -12,8 +12,8 @@ from app.core.enums import QuoteStatus
 from app.models import QuoteMatch, QuoteRequest
 from app.models.base import utcnow
 from app.schemas.quote import QuoteCreate, QuoteCreated
+from app.services import customers, installers, matching
 from app.services import email as emails
-from app.services import installers, matching
 from app.services.email import Email
 from app.services.geocoding import GeocodedPostcode, Geocoder, GeocodingUnavailableError
 from app.services.platform import LeadMatching
@@ -76,7 +76,9 @@ async def create_quote(
         if data.installer_slug
         else None
     )
+    customer = await customers.get_or_create(session, data.email, data.first_name, data.phone)
     quote = QuoteRequest(
+        customer_id=customer.id,
         reference=await _unused_reference(session),
         postcode=place.postcode if place else data.postcode,
         latitude=place.latitude if place else None,
@@ -119,11 +121,12 @@ async def create_quote(
         quote.status = QuoteStatus.MATCHED
     else:
         quote.status = QuoteStatus.NEW if held else QuoteStatus.UNMATCHED
+    link = customers.link_url(await customers.issue_link(session, customer))
     await session.commit()
 
     outbox = [
         emails.quote_confirmation(
-            quote, [installer.business_name for installer in matched], held=held
+            quote, [installer.business_name for installer in matched], held=held, link=link
         ),
         *(emails.new_lead(quote, installer, installer.user.email) for installer in matched),
     ]

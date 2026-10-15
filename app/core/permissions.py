@@ -29,8 +29,8 @@ MODULES: tuple[Module, ...] = (
     Module(
         "leads",
         "Leads & Quotes",
-        "Quote requests, who they went to, profile enquiries; sending held requests.",
-        ("quotes", "enquiries"),
+        "Quote requests, customers, who they went to, profile enquiries; sending held requests.",
+        ("quotes", "enquiries", "customers"),
     ),
     Module(
         "messages",

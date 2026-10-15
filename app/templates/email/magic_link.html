@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name }},</p>
+<p style="margin:0 0 4px;">Here is your secure link to your PickASparky quotes. One click signs you in. No password needed.</p>
+{{ button(link, "View My Quotes") }}
+<p style="margin:0 0 16px;font-size:13px;color:#5b6b7d;">The link works for {{ hours }} hours. If you did not ask for it, you can ignore this email: nobody can see your quotes without it.</p>
+{% endblock %}

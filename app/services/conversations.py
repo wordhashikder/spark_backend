@@ -24,6 +24,7 @@ from app.core.plans import capabilities_for
 from app.models import (
     Conversation,
     ConversationMessage,
+    Customer,
     Installer,
     InstallerEnquiry,
     Offer,
@@ -275,6 +276,12 @@ async def homeowner_message(
     session: AsyncSession, token: str, body: str
 ) -> tuple[MessageOut, list[Email]]:
     conversation = await _from_token(session, token, lock=True)
+    return await _post_homeowner_message(session, conversation, body)
+
+
+async def _post_homeowner_message(
+    session: AsyncSession, conversation: Conversation, body: str
+) -> tuple[MessageOut, list[Email]]:
     message = _add_message(conversation, MessageSender.HOMEOWNER, body)
     conversation.homeowner_read_at = message.created_at
     await session.commit()
@@ -291,6 +298,16 @@ async def respond_to_offer(
     note: str | None,
 ) -> tuple[OfferOut, list[Email]]:
     conversation = await _from_token(session, token, lock=True)
+    return await _apply_offer_response(session, conversation, offer_id, decision, note)
+
+
+async def _apply_offer_response(
+    session: AsyncSession,
+    conversation: Conversation,
+    offer_id: uuid.UUID,
+    decision: Literal["accept", "decline"],
+    note: str | None,
+) -> tuple[OfferOut, list[Email]]:
     offer = next((item for item in conversation.offers if item.id == offer_id), None)
     if offer is None:
         raise NotFoundError("Quote not found.")
@@ -312,6 +329,57 @@ async def respond_to_offer(
     return OfferOut.model_validate(offer), _notify_installer(
         conversation, lambda to: emails.offer_response_to_installer(conversation, offer, to)
     )
+
+
+# ---- Homeowner (signed-in customer) -----------------------------------------------------
+
+
+async def _customer_conversation(
+    session: AsyncSession, customer: Customer, conversation_id: uuid.UUID, *, lock: bool = False
+) -> Conversation:
+    conversation = await _load(session, conversation_id, lock=lock)
+    if conversation.homeowner_email.lower() != customer.email:
+        raise NotFoundError("Conversation not found.")
+    return conversation
+
+
+async def list_for_customer(
+    session: AsyncSession, customer: Customer, *, offset: int, limit: int
+) -> tuple[list[ConversationSummary], int]:
+    mine = func.lower(Conversation.homeowner_email) == customer.email
+    return await _summaries(session, [mine], reader="homeowner", offset=offset, limit=limit)
+
+
+async def get_for_customer(
+    session: AsyncSession, customer: Customer, conversation_id: uuid.UUID
+) -> ConversationDetail:
+    conversation = await _customer_conversation(session, customer, conversation_id)
+    conversation.homeowner_read_at = utcnow()
+    await session.commit()
+    return _detail(conversation, include_email=False)
+
+
+async def customer_message(
+    session: AsyncSession, customer: Customer, conversation_id: uuid.UUID, body: str
+) -> tuple[MessageOut, list[Email]]:
+    conversation = await _customer_conversation(session, customer, conversation_id, lock=True)
+    return await _post_homeowner_message(session, conversation, body)
+
+
+async def customer_respond_to_offer(
+    session: AsyncSession,
+    customer: Customer,
+    offer_id: uuid.UUID,
+    decision: Literal["accept", "decline"],
+    note: str | None,
+) -> tuple[OfferOut, list[Email]]:
+    conversation_id = await session.scalar(
+        select(Offer.conversation_id).where(Offer.id == offer_id)
+    )
+    if conversation_id is None:
+        raise NotFoundError("Quote not found.")
+    conversation = await _customer_conversation(session, customer, conversation_id, lock=True)
+    return await _apply_offer_response(session, conversation, offer_id, decision, note)
 
 
 # ---- Back office -----------------------------------------------------------------------

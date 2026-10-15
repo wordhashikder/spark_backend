@@ -5,7 +5,9 @@ run `python -m app.content --output ...` so the website's offline fallback
 (`frontend/src/content/site-content.json`) carries the same original wording.
 """
 
-from app.content.fields import ContentValidationError, Document, FieldType
+from dataclasses import replace
+
+from app.content.fields import ContentValidationError, Document, FieldType, closing_section
 from app.content.pages.company import ABOUT, CONTACT, HOW_IT_WORKS
 from app.content.pages.guides import ACCREDITATIONS, SAFETY, VETTING
 from app.content.pages.help import FAQ, JOIN
@@ -15,27 +17,53 @@ from app.content.pages.journeys import BLOG, GET_QUOTES, LOCATION
 from app.content.pages.legal import COOKIES, PRIVACY, TERMS
 from app.content.pages.site import SITE
 
+# Pages that end with the "Find installers" footer also get an optional closing section.
+_WITH_CLOSING = {
+    "home",
+    "installers-hub",
+    "location",
+    "about",
+    "how-it-works",
+    "contact",
+    "faq",
+    "join",
+    "blog",
+    "how-we-vet",
+    "accreditations",
+    "safety",
+}
+
+
+def _with_closing(document: Document) -> Document:
+    if document.key not in _WITH_CLOSING:
+        return document
+    return replace(document, sections=(*document.sections, closing_section()))
+
+
 # Shown in the Dashboard in this order.
 DOCUMENTS: dict[str, Document] = {
     document.key: document
-    for document in (
-        SITE,
-        HOME,
-        HUB,
-        LOCATION,
-        GET_QUOTES,
-        ABOUT,
-        HOW_IT_WORKS,
-        CONTACT,
-        FAQ,
-        JOIN,
-        BLOG,
-        VETTING,
-        ACCREDITATIONS,
-        SAFETY,
-        PRIVACY,
-        TERMS,
-        COOKIES,
+    for document in map(
+        _with_closing,
+        (
+            SITE,
+            HOME,
+            HUB,
+            LOCATION,
+            GET_QUOTES,
+            ABOUT,
+            HOW_IT_WORKS,
+            CONTACT,
+            FAQ,
+            JOIN,
+            BLOG,
+            VETTING,
+            ACCREDITATIONS,
+            SAFETY,
+            PRIVACY,
+            TERMS,
+            COOKIES,
+        ),
     )
 }
 

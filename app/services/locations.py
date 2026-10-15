@@ -12,7 +12,7 @@ from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import DirectoryColumn, InstallerStatus
-from app.core.exceptions import FieldValidationError, NotFoundError
+from app.core.exceptions import ConflictError, FieldValidationError, NotFoundError
 from app.models import Installer, Location
 from app.schemas.location import (
     AdminLocationCreate,
@@ -109,6 +109,8 @@ async def get_detail(session: AsyncSession, slug: str) -> LocationDetail:
         seo_title=location.seo_title,
         seo_description=location.seo_description,
         h1_heading=location.h1_heading,
+        extra_title=location.extra_title,
+        extra_body=location.extra_body,
         updated_at=location.updated_at,
     )
 
@@ -259,3 +261,26 @@ async def remove_image(session: AsyncSession, slug: str, storage: ImageStorage) 
     await session.commit()
     await discard_quietly(storage, previous_public_id)
     return location
+
+
+async def delete(session: AsyncSession, slug: str, storage: ImageStorage) -> None:
+    """Remove a town page. Only an unpublished page with no installers can be deleted.
+
+    Installers are placed at their nearest town, so removing a page that has some would
+    leave them without one; the live page is unpublished first so its address never breaks.
+    """
+    location = await _get_for_update(session, slug)
+    if location.is_published:
+        raise ConflictError("Unpublish the page before deleting it.")
+    attached = await session.scalar(
+        select(func.count()).select_from(Installer).where(Installer.location_id == location.id)
+    )
+    if attached:
+        raise ConflictError(
+            f"{attached} installer(s) are placed in {location.name}. "
+            "Move or delete them first, or keep the page as a draft."
+        )
+    public_id = location.image_public_id
+    await session.delete(location)
+    await session.commit()
+    await discard_quietly(storage, public_id)

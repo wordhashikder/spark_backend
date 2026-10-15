@@ -182,13 +182,13 @@ async def update_profile(
         installer.location = location
 
     if data.accreditations is not None:
-        _replace_accreditations(installer, data.accreditations)
+        replace_accreditations(installer, data.accreditations)
 
     await session.commit()
     return installer
 
 
-def _replace_accreditations(installer: Installer, wanted: list[AccreditationInput]) -> None:
+def replace_accreditations(installer: Installer, wanted: list[AccreditationInput]) -> None:
     """Make the installer's accreditations match `wanted`.
 
     Verification is granted by admins only: it survives an unchanged entry and is cleared

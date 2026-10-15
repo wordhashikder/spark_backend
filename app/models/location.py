@@ -44,6 +44,10 @@ class Location(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Search snippet overrides set by the admin; blank uses the page's standard wording.
     seo_title: Mapped[str | None] = mapped_column(String(70))
     seo_description: Mapped[str | None] = mapped_column(String(160))
+    # An optional content block between the reviews and the directory of this page; empty
+    # shows nothing here (the page template's block, if any, is used instead).
+    extra_title: Mapped[str | None] = mapped_column(String(120))
+    extra_body: Mapped[str | None] = mapped_column(Text)
     # Page heading override; blank uses "EV Charger Installers in {name}".
     h1_heading: Mapped[str | None] = mapped_column(String(120))
     # Draft pages are hidden from the public site: lists, the directory, the sitemap and

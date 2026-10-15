@@ -37,6 +37,10 @@ class LocationDetail(LocationSummary):
     seo_description: str | None = None
     # Heading override; null means "EV Charger Installers in {name}".
     h1_heading: str | None = None
+    # The page's own block between the reviews and the directory (Markdown); null shows
+    # the template's block, if the team wrote one.
+    extra_title: str | None = None
+    extra_body: str | None = None
     updated_at: datetime | None = None
 
 
@@ -75,6 +79,8 @@ class AdminLocation(BaseModel):
     seo_title: str | None
     seo_description: str | None
     h1_heading: str | None = None
+    extra_title: str | None = None
+    extra_body: str | None = None
     is_published: bool = True
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -102,6 +108,8 @@ class AdminLocationUpdate(BaseModel):
     is_published: bool | None = None
     h1_heading: Annotated[Annotated[str, text(1, 120)] | None, blank_as_none] = None
     intro: Annotated[Annotated[str, text(1, INTRO_MAX_LENGTH)] | None, blank_as_none] = None
+    extra_title: Annotated[Annotated[str, text(1, 120)] | None, blank_as_none] = None
+    extra_body: Annotated[Annotated[str, text(1, INTRO_MAX_LENGTH)] | None, blank_as_none] = None
     image_url: Annotated[ImageUrl | None, blank_as_none] = None
     image_alt: Annotated[Annotated[str, text(1, 160)] | None, blank_as_none] = None
     image_credit: Annotated[Annotated[str, text(1, 160)] | None, blank_as_none] = None

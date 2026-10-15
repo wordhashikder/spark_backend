@@ -23,3 +23,6 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# Development email outbox (emails written here while SMTP is not configured)
+dev-outbox/

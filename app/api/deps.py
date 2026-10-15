@@ -16,8 +16,8 @@ from app.core.enums import Role, StaffRole
 from app.core.exceptions import ForbiddenError, NotAuthenticatedError, NotFoundError
 from app.core.middleware import MAX_UPLOAD_BYTES
 from app.core.rate_limit import client_ip
-from app.models import Installer, User
-from app.services import installers, platform
+from app.models import Customer, Installer, User
+from app.services import customers, installers, platform
 from app.services.access import access_for
 from app.services.billing import BillingGateway
 from app.services.email import Email, EmailSender
@@ -229,3 +229,16 @@ async def require_installer(
 
 
 InstallerDep = Annotated[Installer, Depends(require_installer)]
+
+
+async def get_current_customer(
+    session: SessionDep,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> Customer:
+    """Resolve the customer's session token (sent by the website's server) to a customer."""
+    if credentials is None:
+        raise NotAuthenticatedError("Please request a new link to sign in.", code="invalid_token")
+    return await customers.authenticate(session, credentials.credentials)
+
+
+CurrentCustomerDep = Annotated[Customer, Depends(get_current_customer)]
