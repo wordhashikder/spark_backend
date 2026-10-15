@@ -217,6 +217,32 @@ async def new_session(session: AsyncSession, user: User) -> TokenPair:
     return tokens
 
 
+HANDOFF_LIFETIME = timedelta(seconds=60)
+
+
+async def issue_dashboard_handoff(session: AsyncSession, user: User) -> str:
+    """A one-time code (valid for a minute) that opens the Dashboard for a signed-in user.
+
+    The public website keeps its session in its own cookies, the Dashboard in another. After an
+    installer signs in on the website, the code carries that sign-in across so they land in
+    their Dashboard without a second login. Only a hash is stored; it works once.
+    """
+    code = await _issue_auth_token(
+        session, user, AuthTokenPurpose.DASHBOARD_HANDOFF, HANDOFF_LIFETIME
+    )
+    await session.commit()
+    return code
+
+
+async def exchange_dashboard_handoff(session: AsyncSession, code: str) -> tuple[TokenPair, User]:
+    """Trade a handoff code for a fresh Dashboard session (its own token family)."""
+    user = await _consume_auth_token(session, code, AuthTokenPurpose.DASHBOARD_HANDOFF)
+    tokens = await _start_session(session, user, family_id=uuid.uuid4())
+    user.last_login_at = utcnow()
+    await session.commit()
+    return tokens, user
+
+
 async def user_for_refresh_token(session: AsyncSession, refresh_token: str) -> User | None:
     user_id = await session.scalar(
         select(RefreshToken.user_id).where(

@@ -34,6 +34,7 @@ class AuthTokenPurpose(StrEnum):
     VERIFY_EMAIL = "verify_email"
     RESET_PASSWORD = "reset_password"  # noqa: S105 - a purpose name, not a credential
     STAFF_INVITE = "staff_invite"
+    DASHBOARD_HANDOFF = "dashboard_handoff"  # website sign-in → Dashboard, one minute, once
 
 
 class MessageSender(StrEnum):

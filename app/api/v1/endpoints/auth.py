@@ -25,6 +25,7 @@ from app.schemas.auth import (
     ChangePasswordRequest,
     ClaimAccount,
     ClaimPreview,
+    DashboardHandoff,
     EmailRequest,
     LoginRequest,
     Me,
@@ -78,6 +79,17 @@ async def resend_verification(
 @router.post("/login", dependencies=[Depends(rate_limit("login", "10/minute"))])
 async def login(data: LoginRequest, session: SessionDep) -> TokenPair:
     return await auth.login(session, data.email, data.password)
+
+
+@router.post(
+    "/dashboard-handoff", dependencies=[Depends(rate_limit("dashboard-handoff", "20/minute"))]
+)
+async def dashboard_handoff(
+    user: CurrentUserDep, session: SessionDep, settings: SettingsDep
+) -> DashboardHandoff:
+    """Called by the website for a signed-in person: the Dashboard address to open."""
+    code = await auth.issue_dashboard_handoff(session, user)
+    return DashboardHandoff(url=f"{settings.dashboard_url}/sso?code={code}")
 
 
 @router.post("/refresh")
@@ -195,6 +207,21 @@ async def start_session(
     user = await auth.user_for_refresh_token(session, tokens.refresh_token)
     if user is None:  # pragma: no cover - the session was just created
         raise NotAuthenticatedError
+    _set_refresh_cookie(response, tokens.refresh_token, settings)
+    return await _access(session, user, tokens)
+
+
+@router.post("/session/handoff", dependencies=[Depends(rate_limit("session-handoff", "10/minute"))])
+async def accept_handoff(
+    data: TokenRequest,
+    session: SessionDep,
+    response: Response,
+    settings: SettingsDep,
+    requested_with: RequestedWith = None,
+) -> AccessToken:
+    """Open the Dashboard with a code from `/auth/dashboard-handoff` (single use)."""
+    _require_ajax(requested_with)
+    tokens, user = await auth.exchange_dashboard_handoff(session, data.token)
     _set_refresh_cookie(response, tokens.refresh_token, settings)
     return await _access(session, user, tokens)
 

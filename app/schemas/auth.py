@@ -82,6 +82,12 @@ class Me(BaseModel):
     permissions: list[str] = []
 
 
+class DashboardHandoff(BaseModel):
+    """Where to send a signed-in person so the Dashboard opens already signed in."""
+
+    url: str
+
+
 class AccessToken(BaseModel):
     """A session for the Dashboard app: the refresh token travels in an httpOnly cookie."""
 
