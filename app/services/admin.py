@@ -20,6 +20,7 @@ from app.core.enums import (
     SubscriptionStatus,
 )
 from app.core.exceptions import ConflictError, FieldValidationError, NotFoundError
+from app.core.plans import sort_rank_expression
 from app.models import (
     ContactMessage,
     Customer,
@@ -92,7 +93,12 @@ async def list_installers(
         select(Installer)
         .where(*filters)
         .options(*_INSTALLER_DETAILS)
-        .order_by(Installer.created_at.desc(), Installer.id.desc())
+        # Premium first, then Pro, then Free; newest first within each plan.
+        .order_by(
+            sort_rank_expression(Installer.plan).desc(),
+            Installer.created_at.desc(),
+            Installer.id.desc(),
+        )
         .offset(offset)
         .limit(limit)
     )

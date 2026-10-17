@@ -23,7 +23,7 @@ async def test_cookie_session_lifecycle(client: httpx.AsyncClient, db: AsyncSess
     assert "refresh_token" not in body
     assert body["user"]["installer"]["slug"] == installer.slug
     cookie = started.headers["set-cookie"]
-    assert "pas_refresh=" in cookie
+    assert "pas_dash_installer=" in cookie
     assert "HttpOnly" in cookie
     assert "Path=/api/v1/auth/session" in cookie
     assert "SameSite=lax" in cookie

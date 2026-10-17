@@ -466,6 +466,7 @@ def listing_claim_link(
         template="listing_claim",
         context={
             "business_name": installer.business_name,
+            "name": installer.contact_name or installer.business_name,
             "profile_url": _profile_url(installer),
             "link": f"{get_settings().frontend_url}/installer/claim/?token={token}",
             "invited": invited,

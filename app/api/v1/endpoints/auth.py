@@ -4,19 +4,22 @@ Two ways to hold a session:
 - `/auth/login`, `/auth/refresh`, `/auth/logout`: tokens in the JSON body, for server-side
   clients such as the public website (which keeps them in its own httpOnly cookies).
 - `/auth/session`: for the Dashboard app in the browser. The refresh token is set as an
-  httpOnly, path-scoped cookie and never reaches JavaScript; the short-lived access token is
-  returned in the body and kept in memory. Refreshing requires the `X-Requested-With`
-  header, which a cross-site form cannot send and which CORS only allows from the
-  configured origins, so the cookie cannot be used for cross-site request forgery.
+  httpOnly, path-scoped cookie (one per role, so an admin and an installer can be signed in
+  to the Dashboard in the same browser without ever mixing up) and never reaches JavaScript;
+  the short-lived access token is returned in the body and kept in memory. Refreshing
+  requires the `X-Requested-With` header, which a cross-site form cannot send and which CORS
+  only allows from the configured origins, so the cookie cannot be used for cross-site
+  request forgery.
 """
 
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from app.api.deps import CurrentUserDep, EmailQueueDep, GeocoderDep, SessionDep, SettingsDep
 from app.core.config import Settings
+from app.core.enums import Role
 from app.core.exceptions import NotAuthenticatedError, error_response
 from app.core.rate_limit import rate_limit
 from app.models import User
@@ -136,40 +139,65 @@ async def change_password(
     """Change the password. Every session ends; a new one is started for this device."""
     await auth.change_password(session, user, data.current_password, data.new_password)
     tokens = await auth.new_session(session, user)
-    _set_refresh_cookie(response, tokens.refresh_token, settings)
+    _set_refresh_cookie(response, tokens.refresh_token, settings, user.role)
     return await _access(session, user, tokens)
 
 
 # ---- Dashboard sessions (httpOnly refresh cookie) ---------------------------------------
 
-REFRESH_COOKIE = "pas_refresh"
+# One cookie per role. They are named apart from the public website's own `pas_refresh`
+# cookie: on a shared host (localhost, or one parent domain) two cookies with the same name
+# overwrite each other and one sign-in silently ends the other.
+_COOKIE_BY_ROLE: dict[Role, str] = {
+    Role.ADMIN: "pas_dash_admin",
+    Role.INSTALLER: "pas_dash_installer",
+}
+_LEGACY_COOKIE = "pas_refresh"  # the single cookie used before roles were split; only cleared
 _REFRESH_COOKIE_PATH = "/api/v1/auth/session"
-RefreshCookie = Annotated[str | None, Cookie(alias=REFRESH_COOKIE)]
 RequestedWith = Annotated[str | None, Header(alias="X-Requested-With")]
+# Which role's session a tab means. The Dashboard remembers it per tab, so two tabs can hold
+# an admin and an installer at once.
+RoleHint = Annotated[Role | None, Query(alias="role")]
 
 
-def _set_refresh_cookie(response: Response, token: str, settings: Settings) -> None:
+def _cookie_options(settings: Settings) -> dict[str, object]:
+    return {
+        "path": _REFRESH_COOKIE_PATH,
+        "domain": settings.session_cookie_domain,
+        "secure": settings.is_production or settings.session_cookie_samesite == "none",
+        "httponly": True,
+        "samesite": settings.session_cookie_samesite,
+    }
+
+
+def _set_refresh_cookie(response: Response, token: str, settings: Settings, role: Role) -> None:
     response.set_cookie(
-        REFRESH_COOKIE,
+        _COOKIE_BY_ROLE[role],
         token,
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
-        path=_REFRESH_COOKIE_PATH,
-        domain=settings.session_cookie_domain,
-        secure=settings.is_production or settings.session_cookie_samesite == "none",
-        httponly=True,
-        samesite=settings.session_cookie_samesite,
+        **_cookie_options(settings),  # type: ignore[arg-type]
     )
 
 
-def _clear_refresh_cookie(response: Response, settings: Settings) -> None:
-    response.delete_cookie(
-        REFRESH_COOKIE,
-        path=_REFRESH_COOKIE_PATH,
-        domain=settings.session_cookie_domain,
-        secure=settings.is_production or settings.session_cookie_samesite == "none",
-        httponly=True,
-        samesite=settings.session_cookie_samesite,
-    )
+def _clear_refresh_cookie(response: Response, settings: Settings, role: Role | None) -> None:
+    options = _cookie_options(settings)
+    for name in ([_COOKIE_BY_ROLE[role]] if role else []) + [_LEGACY_COOKIE]:
+        response.delete_cookie(name, **options)  # type: ignore[arg-type]
+
+
+def _session_role(request: Request, hint: Role | None) -> Role | None:
+    """The role a request means: the hint, else the only role signed in. Never a guess."""
+    if hint:
+        return hint
+    present = [role for role, name in _COOKIE_BY_ROLE.items() if request.cookies.get(name)]
+    return present[0] if len(present) == 1 else None
+
+
+async def _replace_session(request: Request, session: SessionDep, role: Role) -> None:
+    """Signing in again as `role` ends that role's earlier Dashboard session in this browser."""
+    previous = request.cookies.get(_COOKIE_BY_ROLE[role])
+    if previous:
+        await auth.logout(session, previous)
 
 
 async def _access(session: SessionDep, user: User, tokens: TokenPair) -> AccessToken:
@@ -180,11 +208,11 @@ async def _access(session: SessionDep, user: User, tokens: TokenPair) -> AccessT
     )
 
 
-def _expired_session(settings: Settings) -> JSONResponse:
+def _expired_session(settings: Settings, role: Role | None) -> JSONResponse:
     """A 401 that also deletes the refresh cookie (a raised error would not carry it)."""
     error = auth.InvalidSessionError()
     response = error_response(401, error.code, error.message, headers=error.headers)
-    _clear_refresh_cookie(response, settings)
+    _clear_refresh_cookie(response, settings, role)
     return response
 
 
@@ -196,6 +224,7 @@ def _require_ajax(requested_with: str | None) -> None:
 @router.post("/session", dependencies=[Depends(rate_limit("login", "10/minute"))])
 async def start_session(
     data: LoginRequest,
+    request: Request,
     session: SessionDep,
     response: Response,
     settings: SettingsDep,
@@ -207,13 +236,15 @@ async def start_session(
     user = await auth.user_for_refresh_token(session, tokens.refresh_token)
     if user is None:  # pragma: no cover - the session was just created
         raise NotAuthenticatedError
-    _set_refresh_cookie(response, tokens.refresh_token, settings)
+    await _replace_session(request, session, user.role)
+    _set_refresh_cookie(response, tokens.refresh_token, settings, user.role)
     return await _access(session, user, tokens)
 
 
 @router.post("/session/handoff", dependencies=[Depends(rate_limit("session-handoff", "10/minute"))])
 async def accept_handoff(
     data: TokenRequest,
+    request: Request,
     session: SessionDep,
     response: Response,
     settings: SettingsDep,
@@ -222,46 +253,57 @@ async def accept_handoff(
     """Open the Dashboard with a code from `/auth/dashboard-handoff` (single use)."""
     _require_ajax(requested_with)
     tokens, user = await auth.exchange_dashboard_handoff(session, data.token)
-    _set_refresh_cookie(response, tokens.refresh_token, settings)
+    await _replace_session(request, session, user.role)
+    _set_refresh_cookie(response, tokens.refresh_token, settings, user.role)
     return await _access(session, user, tokens)
 
 
 @router.post("/session/refresh", response_model=AccessToken)
 async def refresh_session(
+    request: Request,
     session: SessionDep,
     response: Response,
     settings: SettingsDep,
-    refresh_token: RefreshCookie = None,
+    role: RoleHint = None,
     requested_with: RequestedWith = None,
 ) -> AccessToken | JSONResponse:
-    """Rotate the refresh cookie and return a new access token."""
+    """Rotate the refresh cookie and return a new access token.
+
+    Only the cookie of the role asked for is used: an admin session can never be handed to a
+    tab that is signed in as an installer, or the other way round.
+    """
     _require_ajax(requested_with)
-    if not refresh_token:
-        return _expired_session(settings)
+    role = _session_role(request, role)
+    refresh_token = request.cookies.get(_COOKIE_BY_ROLE[role]) if role else None
+    if role is None or not refresh_token:
+        return _expired_session(settings, role)
     try:
         tokens = await auth.refresh(session, refresh_token)
     except auth.InvalidSessionError:
-        return _expired_session(settings)
+        return _expired_session(settings, role)
     user = await auth.user_for_refresh_token(session, tokens.refresh_token)
-    if user is None:  # pragma: no cover - the session was just rotated
-        return _expired_session(settings)
-    _set_refresh_cookie(response, tokens.refresh_token, settings)
+    if user is None or user.role != role:  # pragma: no cover - a tampered cookie
+        return _expired_session(settings, role)
+    _set_refresh_cookie(response, tokens.refresh_token, settings, role)
     return await _access(session, user, tokens)
 
 
 @router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
 async def end_session(
+    request: Request,
     session: SessionDep,
     response: Response,
     settings: SettingsDep,
-    refresh_token: RefreshCookie = None,
+    role: RoleHint = None,
     requested_with: RequestedWith = None,
 ) -> None:
-    """Sign out of the Dashboard (idempotent)."""
+    """Sign out of the Dashboard (idempotent). Ends the given role, or every role if none."""
     _require_ajax(requested_with)
-    if refresh_token:
-        await auth.logout(session, refresh_token)
-    _clear_refresh_cookie(response, settings)
+    for each in [role] if role else list(_COOKIE_BY_ROLE):
+        refresh_token = request.cookies.get(_COOKIE_BY_ROLE[each])
+        if refresh_token:
+            await auth.logout(session, refresh_token)
+        _clear_refresh_cookie(response, settings, each)
 
 
 # ---- Claiming a listing ------------------------------------------------------------------

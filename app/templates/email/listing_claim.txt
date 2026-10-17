@@ -1,10 +1,16 @@
+{% if invited %}
+Hello {{ name }},
+
+Welcome to PickASparky!
+
+Your free installer profile has been created on PickASparky, the UK marketplace connecting homeowners with qualified electricians.
+
+Your business can now be discovered by homeowners searching for installation services in your area.
+
+Claim your profile to update your business details, showcase your accreditations, add photos and services, and start receiving enquiries from potential customers.
+{% else %}
 Hello,
 
-{% if invited %}
-{{ business_name }} has a free listing on PickASparky, the UK directory of EV charger installers. Homeowners near you can already find it.
-
-Claim the listing to manage it yourself: check your details, add your accreditations, photos and services, and choose whether to receive customer enquiries.
-{% else %}
 We received a request to claim the PickASparky listing for {{ business_name }}. Set a password to take it over.
 {% endif %}
 

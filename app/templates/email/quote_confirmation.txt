@@ -16,11 +16,13 @@ They will contact you directly with their quotes.
 {% elif held %}
 Our team is choosing the best local installers for your job. We will email you as soon as your request has been shared with them, usually within one working day.
 {% else %}
-We do not have an installer available in your area just yet. We have saved your request and will be in touch as soon as an installer is available.
+We've received your enquiry, and it's on its way to qualified, vetted electricians in your area who can provide you with a quote.
+
+We'll email you as soon as an installer responds.
 {% endif %}
 
 {% if link %}
-View your quotes, messages and request status (no password needed):
+You can also view your quotes, check for updates and communicate with installers through your personal PickASparky dashboard using the secure link below:
 {{ link }}
 This secure link signs you in automatically and works for {{ hours }} hours.
 

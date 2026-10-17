@@ -28,7 +28,7 @@ async def test_handoff_signs_an_installer_into_the_dashboard(
     opened = await client.post("/api/v1/auth/session/handoff", json={"token": code}, headers=AJAX)
     assert opened.status_code == 200
     assert opened.json()["user"]["email"] == user.email
-    assert "pas_refresh" in opened.headers["set-cookie"]
+    assert "pas_dash_installer=" in opened.headers["set-cookie"]
     assert "HttpOnly" in opened.headers["set-cookie"]
 
     # The session works: the refresh cookie renews it.
