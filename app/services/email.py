@@ -255,7 +255,10 @@ def quote_confirmation(
     held: bool = False,
     link: str | None = None,
 ) -> Email:
-    """Sent on every request. `held`: automatic matching is off, so the team chooses."""
+    """Sent on every request. One wording for all cases: it never says who got the request.
+
+    `installer_names` and `held` stay in the context for the team's tools and tests only.
+    """
     return Email(
         to=quote.email,
         subject=f"We've received your quote request ({quote.reference})",
@@ -276,7 +279,7 @@ def quote_confirmation(
 def quote_shared(
     quote: QuoteRequest, installer_names: Sequence[str], *, link: str | None = None
 ) -> Email:
-    """The team sent a held or unmatched request to installers."""
+    """The team sent a held or unmatched request to installers (same wording as above)."""
     return Email(
         to=quote.email,
         subject=f"Installers are ready to quote for your EV charger ({quote.reference})",

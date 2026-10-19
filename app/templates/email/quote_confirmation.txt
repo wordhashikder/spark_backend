@@ -1,25 +1,10 @@
 Hi {{ first_name }},
 
-{% if shared %}
-Good news about your EV charger quote request {{ reference }}: we have found installers for you.
-{% else %}
 Thanks for your EV charger quote request. Your reference is {{ reference }}.
-{% endif %}
 
-{% if installer_names %}
-We have shared your request with:
-{% for name in installer_names %}
-- {{ name }}
-{% endfor %}
-
-They will contact you directly with their quotes.
-{% elif held %}
-Our team is choosing the best local installers for your job. We will email you as soon as your request has been shared with them, usually within one working day.
-{% else %}
 We've received your enquiry, and it's on its way to qualified, vetted electricians in your area who can provide you with a quote.
 
 We'll email you as soon as an installer responds.
-{% endif %}
 
 {% if link %}
 You can also view your quotes, check for updates and communicate with installers through your personal PickASparky dashboard using the secure link below:

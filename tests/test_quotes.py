@@ -242,6 +242,41 @@ async def test_phone_number_is_optional(client: httpx.AsyncClient, fakes: Fakes,
     assert list(invalid.json()["error"]["fields"]) == ["phone"]
 
 
+async def test_homeowner_email_is_the_same_whether_or_not_installers_matched(
+    client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
+):
+    """One fixed email: it never says how many installers, or which, got the request."""
+    await create_installer(db, "Pro Manchester Electrical", plan=Plan.PRO)
+    assert (await client.post("/api/v1/quotes", json=quote_payload())).status_code == 201
+    far = quote_payload(postcode="LS1 4AP")  # nobody covers Leeds
+    assert (await client.post("/api/v1/quotes", json=far)).status_code == 201
+
+    matched, unmatched = fakes.emails.of("quote_confirmation")
+    assert matched.context["installer_names"]
+    assert not unmatched.context["installer_names"]
+
+    def body(email, kind: str) -> str:
+        part = fakes.emails._renderer.render(email).get_body(preferencelist=(kind,))
+        text = part.get_content()
+        for private in (email.context["reference"], email.context["link"]):
+            text = text.replace(private, "PRIVATE")
+        return text
+
+    for kind in ("plain", "html"):
+        first, second = body(matched, kind), body(unmatched, kind)
+        assert "Pro Manchester Electrical" not in first
+        assert "shared your request with" not in first
+        assert "its way to qualified, vetted electricians" in first
+        assert "We'll email you as soon as an installer responds." in first
+        assert "choosing the best" not in second
+        # Apart from the answers' own text, the two emails read the same.
+        assert first.split("Here is what you told us")[0].replace(
+            matched.context["first_name"], "X"
+        ) == second.split("Here is what you told us")[0].replace(
+            unmatched.context["first_name"], "X"
+        )
+
+
 async def test_honeypot_submissions_look_successful_but_store_nothing(
     client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
 ):
