@@ -5,10 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
-from app.core.enums import InstallerStatus, Plan, ReviewStatus, Role
+from app.core.enums import InstallerStatus, ReviewStatus, Role
 from app.models import Installer, QuoteMatch, Review
 from tests.helpers import (
     Fakes,
+    Plan,
     auth_headers,
     create_installer,
     create_review,

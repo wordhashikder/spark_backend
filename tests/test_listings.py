@@ -5,10 +5,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
-from app.core.enums import InstallerSource, InstallerStatus, Plan, Role
+from app.core.enums import InstallerSource, InstallerStatus, Role
 from app.models import BlogPost, Installer, QuoteMatch, SeedBatch, User
 from app.services import seeding
-from tests.helpers import Fakes, auth_headers, create_installer, create_user, quote_payload
+from tests.helpers import Fakes, Plan, auth_headers, create_installer, create_user, quote_payload
 
 NEW_PASSWORD = "Another-s3cret-pass"
 

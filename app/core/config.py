@@ -6,6 +6,7 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+SMTP_IMPLICIT_TLS_PORT = 465
 MIN_PRODUCTION_SECRET_LENGTH = 32
 _ASYNC_SCHEME = "postgresql+asyncpg://"
 _REWRITTEN_SCHEMES = ("postgres://", "postgresql://")
@@ -65,10 +66,10 @@ class Settings(BaseSettings):
     cloudinary_api_secret: str | None = None
     cloudinary_folder: str = "pickasparky"
 
+    # Stripe credentials only. Plans and their prices live in the database (Dashboard,
+    # Plans & billing) and are mirrored to Stripe, so no price ids are configured here.
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
-    stripe_price_pro: str | None = None
-    stripe_price_premium: str | None = None
 
     rate_limit_storage_uri: str = "memory://"
     postcodes_api_url: str = "https://api.postcodes.io"
@@ -91,8 +92,6 @@ class Settings(BaseSettings):
         "cloudinary_api_secret",
         "stripe_secret_key",
         "stripe_webhook_secret",
-        "stripe_price_pro",
-        "stripe_price_premium",
         "docs_enabled",
         "session_cookie_domain",
         "frontend_internal_url",
@@ -134,6 +133,13 @@ class Settings(BaseSettings):
             raise ValueError("INTERNAL_API_KEY is required in production")
         if self.smtp_use_tls and self.smtp_start_tls:
             raise ValueError("SMTP_USE_TLS and SMTP_START_TLS are mutually exclusive")
+        if self.smtp_host and self.smtp_port == SMTP_IMPLICIT_TLS_PORT and not self.smtp_use_tls:
+            # The server speaks TLS from the first byte on this port, so a plain connection
+            # (even one that would upgrade with STARTTLS) is dropped: "Unexpected EOF".
+            raise ValueError(
+                "SMTP_PORT=465 needs SMTP_USE_TLS=true and SMTP_START_TLS=false "
+                "(or use port 587 with SMTP_START_TLS=true)"
+            )
         return self
 
     @property
@@ -169,14 +175,17 @@ class Settings(BaseSettings):
 
     @property
     def stripe_configured(self) -> bool:
-        return all(
-            (
-                self.stripe_secret_key,
-                self.stripe_webhook_secret,
-                self.stripe_price_pro,
-                self.stripe_price_premium,
-            )
-        )
+        """The secret key is enough to call Stripe (checkout, plan changes, price sync)."""
+        return bool(self.stripe_secret_key)
+
+    @property
+    def stripe_webhook_configured(self) -> bool:
+        return bool(self.stripe_webhook_secret)
+
+    @property
+    def plan_refresh_enabled(self) -> bool:
+        """Workers re-read the plan catalogue periodically so an edit reaches all of them."""
+        return self.environment != "test"
 
 
 @lru_cache

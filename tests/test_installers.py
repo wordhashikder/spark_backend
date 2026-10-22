@@ -3,12 +3,13 @@
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import InstallerStatus, Plan
+from app.core.enums import InstallerStatus
 from tests.helpers import (
     LEEDS,
     PNG_BYTES,
     STOCKPORT,
     Fakes,
+    Plan,
     auth_headers,
     create_installer,
 )

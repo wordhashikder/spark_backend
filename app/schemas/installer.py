@@ -17,9 +17,9 @@ from pydantic import (
     model_validator,
 )
 
-from app.core.enums import AccreditationScheme, InstallerStatus, Plan, Service, SubscriptionStatus
+from app.core.enums import AccreditationScheme, InstallerStatus, Service, SubscriptionStatus
 from app.core.exceptions import FieldValueError
-from app.core.plans import capabilities_for
+from app.core.plans import capabilities_for, registry
 from app.models import Installer
 from app.models.installer import MAX_COVERAGE_RADIUS_MILES, MIN_COVERAGE_RADIUS_MILES
 from app.schemas.common import Phone, Postcode, blank_as_none, text
@@ -102,7 +102,7 @@ class InstallerCard(BaseModel):
     location_slug: str
     rating_avg: float | None
     review_count: int
-    plan: Plan
+    plan: str
     is_featured: bool
     # Approved by PickASparky and run by the business's own account. Listings PickASparky
     # added and nobody has claimed yet are not shown as verified.
@@ -150,7 +150,12 @@ class InstallerProfile(InstallerDetail):
     """The installer's own, ungated view of their profile and account state."""
 
     status: InstallerStatus
-    requested_plan: Plan | None
+    plan_name: str
+    # What the current plan allows, so the profile page can say what is and is not included.
+    max_gallery_photos: int
+    public_service_limit: int | None
+    requested_plan: str | None
+    cancel_at_period_end: bool
     subscription_status: SubscriptionStatus
     current_period_end: datetime | None
     base_postcode: str
@@ -171,7 +176,11 @@ class InstallerProfile(InstallerDetail):
             photos=installer.photos,
             accepts_direct_quotes=capabilities_for(installer.plan).accepts_direct_quotes,
             status=installer.status,
+            plan_name=registry.entry(installer.plan).name,
+            max_gallery_photos=capabilities_for(installer.plan).max_gallery_photos,
+            public_service_limit=capabilities_for(installer.plan).public_service_limit,
             requested_plan=installer.requested_plan,
+            cancel_at_period_end=installer.cancel_at_period_end,
             subscription_status=installer.subscription_status,
             current_period_end=installer.current_period_end,
             base_postcode=installer.base_postcode,

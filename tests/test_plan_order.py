@@ -3,8 +3,8 @@
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import Plan, Role
-from tests.helpers import auth_headers, create_installer, create_user
+from app.core.enums import Role
+from tests.helpers import Plan, auth_headers, create_installer, create_user
 
 
 async def _make(db: AsyncSession):

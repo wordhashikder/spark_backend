@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     health,
     installers,
     locations,
+    plans,
     quotes,
     reviews,
 )
@@ -24,6 +25,7 @@ for module in (
     auth,
     installers,
     locations,
+    plans,
     quotes,
     reviews,
     contact,

@@ -388,8 +388,8 @@ JOIN = Document(
                 max_length=240,
                 rows=2,
             ),
-            help="Plan names, prices and features match the Stripe billing setup, so they are "
-            "changed with the developers rather than here.",
+            help="The plan cards themselves (names, prices and features) come from Plans & "
+            "billing, so they are changed there rather than here.",
         ),
         section(
             "faq",

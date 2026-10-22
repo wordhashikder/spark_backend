@@ -183,7 +183,7 @@ async def overview(session: AsyncSession, *, days: int, max_installers: int) -> 
             change=(
                 round(match_rate_now - match_rate_before, 1) if leads_before and leads_now else None
             ),
-            hint=f"avg {float(avg_matched):.1f} of {max_installers} installers per lead",
+            hint=f"avg {float(avg_matched):.1f} installers told per lead",
         ),
         monthly=monthly,
         leads_by_area=[CountByKey(key=str(key), count=count) for key, count in area_rows],

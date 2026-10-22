@@ -25,11 +25,11 @@ from app.core.enums import (
     DirectoryColumn,
     InstallerSource,
     InstallerStatus,
-    Plan,
     ReviewStatus,
     Role,
     StaffRole,
 )
+from app.core.plans import DEFAULT_PLAN_KEY
 from app.models import (
     BlogPost,
     Installer,
@@ -305,7 +305,7 @@ async def insert_listings(session: AsyncSession) -> int:
                 services=["ev_charger_installation"],
                 areas_covered=profile.areas_covered,
                 status=InstallerStatus.APPROVED,
-                plan=Plan.FREE,
+                plan=DEFAULT_PLAN_KEY,
                 approved_at=now,
                 source=InstallerSource.IMPORTED,
                 contact_email=entry["email"],
@@ -353,8 +353,8 @@ async def insert_showcase(session: AsyncSession) -> int:
             services=entry["services"],
             areas_covered=entry["areas_covered"],
             status=status,
-            plan=Plan(entry["plan"]),
-            requested_plan=Plan(entry["plan"]),
+            plan=entry["plan"],
+            requested_plan=entry["plan"],
             is_featured=entry["is_featured"],
             approved_at=now if status is InstallerStatus.APPROVED else None,
             source=InstallerSource.IMPORTED,

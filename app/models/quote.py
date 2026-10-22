@@ -24,6 +24,7 @@ from app.core.enums import (
     InstallationType,
     LeadStatus,
     QuoteStatus,
+    Service,
     Timing,
 )
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, pg_enum
@@ -79,6 +80,16 @@ class QuoteRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("customers.id", ondelete="SET NULL"), index=True
     )
 
+    @property
+    def service(self) -> Service:
+        """The service the homeowner asked for.
+
+        Today every request is for EV charger installation. When other services are added,
+        store the chosen one on the request and return it here: installer emails and anything
+        else that names the service read it from this one place.
+        """
+        return Service.EV_CHARGER_INSTALLATION
+
 
 class QuoteMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A lead: one quote request offered to one installer."""
@@ -101,6 +112,9 @@ class QuoteMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         server_default=LeadStatus.SENT.value,
     )
     review_invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the installer first answered (a message or a quote). Only the first few installers
+    # to respond may quote one request, so this is what holds their place.
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     quote_request: Mapped[QuoteRequest] = relationship(lazy="raise")
     installer: Mapped[Installer] = relationship(lazy="raise")

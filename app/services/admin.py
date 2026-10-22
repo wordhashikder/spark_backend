@@ -13,14 +13,13 @@ from app.core.enums import (
     AccreditationScheme,
     InstallerSource,
     InstallerStatus,
-    Plan,
     QuoteStatus,
     ReviewStatus,
     Role,
     SubscriptionStatus,
 )
 from app.core.exceptions import ConflictError, FieldValidationError, NotFoundError
-from app.core.plans import sort_rank_expression
+from app.core.plans import registry, sort_rank_expression
 from app.models import (
     ContactMessage,
     Customer,
@@ -44,6 +43,7 @@ from app.schemas.admin import (
 from app.services import customers, lead_stats, locations, matching, profiles, reviews
 from app.services import email as emails
 from app.services import installers as installer_service
+from app.services import plans as plan_service
 from app.services.email import Email
 from app.services.geo import installer_covers_point, installer_distance_to
 from app.services.geocoding import Geocoder
@@ -66,7 +66,7 @@ async def list_installers(
     search: str | None = None,
     source: InstallerSource | None = None,
     claimed: bool | None = None,
-    plan: Plan | None = None,
+    plan: str | None = None,
 ) -> tuple[list[Installer], int]:
     filters: list[ColumnElement[bool]] = []
     if status:
@@ -154,6 +154,7 @@ async def update_installer(
         elif data.status is InstallerStatus.REJECTED and installer.user is not None:
             outbox.append(emails.installer_rejected(installer, installer.user.email))
     if data.plan is not None:
+        await plan_service.require_assignable_plan(session, data.plan)
         installer.plan = data.plan
     if data.is_featured is not None:
         installer.is_featured = data.is_featured
@@ -222,6 +223,7 @@ async def build_listing(
     session: AsyncSession, data: AdminInstallerCreate, geocoder: Geocoder
 ) -> Installer:
     """Add (without committing) an unclaimed listing placed at its postcode."""
+    await plan_service.require_assignable_plan(session, data.plan)
     installer = Installer(
         slug=await installer_service.unique_slug(session, data.business_name),
         business_name=data.business_name,
@@ -459,7 +461,7 @@ async def quote_matches(session: AsyncSession, quote_id: uuid.UUID) -> list[Quot
 
 
 async def quote_candidates(session: AsyncSession, quote_id: uuid.UUID) -> list[QuoteCandidate]:
-    """Installers the team can send a request to: lead-receiving installers, nearest first.
+    """Installers the team can send a request to: approved installers, nearest first.
 
     Those whose coverage includes the address come first; the rest are listed by distance
     so the team can widen the search for an area nobody covers.
@@ -473,7 +475,7 @@ async def quote_candidates(session: AsyncSession, quote_id: uuid.UUID) -> list[Q
     if quote.latitude is None or quote.longitude is None:
         found = await session.scalars(
             select(Installer)
-            .where(*matching.receives_leads())
+            .where(*matching.notifiable())
             .order_by(Installer.business_name)
             .limit(_CANDIDATES)
         )
@@ -482,7 +484,7 @@ async def quote_candidates(session: AsyncSession, quote_id: uuid.UUID) -> list[Q
     covers = installer_covers_point(quote.latitude, quote.longitude)
     rows = await session.execute(
         select(Installer, distance, covers)
-        .where(*matching.receives_leads())
+        .where(*matching.notifiable())
         .order_by(covers.desc(), distance, Installer.id)
         .limit(_CANDIDATES)
     )
@@ -504,6 +506,7 @@ def _candidate(
         business_name=installer.business_name,
         town=installer.town,
         plan=installer.plan,
+        plan_name=registry.entry(installer.plan).name,
         rating_avg=None if installer.rating_avg is None else float(installer.rating_avg),
         review_count=installer.review_count,
         distance_miles=None if miles is None else round(miles, 1),
@@ -517,10 +520,13 @@ async def assign_quote(
     quote_id: uuid.UUID,
     installer_ids: Sequence[uuid.UUID],
     *,
-    max_installers: int,
+    max_quotes: int,
 ) -> tuple[list[QuoteMatch], list[Email]]:
     """Send a request to installers the team picked (held or unmatched requests, or to add
-    one more). Each installer gets the usual new-lead email; the homeowner is told who."""
+    more). Each installer gets the usual new-lead email; the homeowner is told who.
+
+    Any number can be told: `max_quotes` only goes into the email, because the limit is on
+    how many installers may respond, not on how many are notified."""
     quote = await _get_quote(session, quote_id, lock=True)
     already = set(
         await session.scalars(
@@ -532,27 +538,20 @@ async def assign_quote(
     ]
     if not wanted:
         raise ConflictError("These installers already have this request.", code="already_matched")
-    if len(already) + len(wanted) > max_installers:
-        raise FieldValidationError(
-            {
-                "installer_ids": (
-                    f"A request goes to at most {max_installers} installers "
-                    f"({len(already)} already have it)."
-                )
-            }
-        )
     found = list(
         await session.scalars(
             select(Installer)
-            .where(Installer.id.in_(wanted), *matching.receives_leads())
+            .where(Installer.id.in_(wanted), *matching.notifiable())
             .options(joinedload(Installer.user))
         )
     )
     if len(found) != len(wanted):
         raise FieldValidationError(
-            {"installer_ids": "Choose approved installers whose plan includes leads."}
+            {"installer_ids": "Choose approved installers who have an account."}
         )
-    added = [QuoteMatch(quote_request=quote, installer=installer) for installer in found]
+    added = [
+        QuoteMatch(id=uuid.uuid7(), quote_request=quote, installer=installer) for installer in found
+    ]
     session.add_all(added)
     quote.status = QuoteStatus.MATCHED
     link = None
@@ -560,8 +559,9 @@ async def assign_quote(
     if customer is not None:
         link = customers.link_url(await customers.issue_link(session, customer))
     await session.commit()
+    lead_ids = {lead.installer.id: lead.id for lead in added}
     outbox: list[Email] = [
-        emails.new_lead(quote, installer, installer.user.email)
+        emails.new_lead(quote, installer, installer.user.email, lead_ids[installer.id], max_quotes)
         for installer in found
         if installer.user is not None
     ]

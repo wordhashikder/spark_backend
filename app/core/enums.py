@@ -109,12 +109,6 @@ class DirectoryColumn(StrEnum):
     OTHER = "other"
 
 
-class Plan(LabelledEnum):
-    FREE = "free", "Free"
-    PRO = "pro", "Pro"
-    PREMIUM = "premium", "Premium"
-
-
 class AccreditationScheme(LabelledEnum):
     OZEV = "ozev", "OZEV"
     NAPIT = "napit", "NAPIT"

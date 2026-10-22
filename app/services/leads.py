@@ -9,11 +9,13 @@ from sqlalchemy.orm import joinedload
 from app.core import security
 from app.core.enums import LeadStatus
 from app.core.exceptions import NotFoundError
+from app.core.plans import capabilities_for
 from app.models import Conversation, Installer, Offer, QuoteMatch, QuoteRequest
 from app.models.base import utcnow
 from app.schemas.quote import LeadProgress
 from app.services import email as emails
 from app.services import lead_stats
+from app.services.conversations import LeadsNotIncludedError, require_open_place
 from app.services.email import Email
 from app.services.geo import distance_miles
 
@@ -35,10 +37,36 @@ async def list_for_installer(
     return list(leads), total or 0
 
 
+async def get_for_installer(
+    session: AsyncSession, installer: Installer, lead_id: uuid.UUID
+) -> QuoteMatch:
+    """One of the installer's leads (the page the "View Enquiry & Respond" email opens)."""
+    lead = await session.scalar(
+        select(QuoteMatch)
+        .where(QuoteMatch.id == lead_id, QuoteMatch.installer_id == installer.id)
+        .options(joinedload(QuoteMatch.quote_request))
+    )
+    if lead is None:
+        raise NotFoundError("Lead not found.")
+    return lead
+
+
 async def update_status(
-    session: AsyncSession, installer: Installer, lead_id: uuid.UUID, status: LeadStatus
+    session: AsyncSession,
+    installer: Installer,
+    lead_id: uuid.UUID,
+    status: LeadStatus,
+    slots: int,
 ) -> tuple[QuoteMatch, list[Email]]:
-    """Move a lead to `status`. The first move to `won` invites the customer to review."""
+    """Move a lead to `status`. The first move to `won` invites the customer to review.
+
+    Only installers with full lead access may do this: a Free installer has been told about
+    the enquiry but must upgrade before working it. Nor can one that is already full (its
+    `slots` places taken by other installers) be worked by a latecomer.
+    """
+    if not capabilities_for(installer.plan).receives_leads:
+        raise LeadsNotIncludedError
+    await require_open_place(session, installer, lead_id, slots)
     lead = await session.scalar(
         select(QuoteMatch)
         .where(QuoteMatch.id == lead_id, QuoteMatch.installer_id == installer.id)
@@ -87,6 +115,7 @@ async def progress(
             QuoteMatch.id,
             lead_stats.installers_matched(),
             lead_stats.quotes_sent(),
+            lead_stats.installers_responded(),
             miles,
             conversation_id,
             my_quote,
@@ -98,9 +127,10 @@ async def progress(
         lead_id: LeadProgress(
             installers_matched=matched or 0,
             quotes_sent=sent or 0,
+            responders=responded or 0,
             distance_miles=None if distance is None else round(float(distance), 1),
             conversation_id=conversation,
             my_quote_status=status,
         )
-        for lead_id, matched, sent, distance, conversation, status in rows
+        for lead_id, matched, sent, responded, distance, conversation, status in rows
     }

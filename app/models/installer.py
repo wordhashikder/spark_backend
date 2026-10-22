@@ -26,12 +26,12 @@ from app.core.enums import (
     AccreditationScheme,
     InstallerSource,
     InstallerStatus,
-    Plan,
     Service,
     SubscriptionStatus,
 )
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, pg_enum
 from app.models.location import Location
+from app.models.plan import DEFAULT_PLAN_KEY
 from app.models.user import User
 
 MIN_COVERAGE_RADIUS_MILES = 1
@@ -105,10 +105,11 @@ class Installer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=InstallerStatus.PENDING,
         server_default=InstallerStatus.PENDING.value,
     )
-    plan: Mapped[Plan] = mapped_column(
-        pg_enum(Plan, "plan"), default=Plan.FREE, server_default=Plan.FREE.value
+    # Keys into the `plans` table (the Dashboard manages the catalogue).
+    plan: Mapped[str] = mapped_column(
+        ForeignKey("plans.key"), default=DEFAULT_PLAN_KEY, server_default=DEFAULT_PLAN_KEY
     )
-    requested_plan: Mapped[Plan | None] = mapped_column(pg_enum(Plan, "plan"))
+    requested_plan: Mapped[str | None] = mapped_column(ForeignKey("plans.key"))
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), unique=True)
@@ -118,6 +119,17 @@ class Installer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         server_default=SubscriptionStatus.NONE.value,
     )
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Auto-renewal is switched off: the plan runs to `current_period_end`, then ends.
+    cancel_at_period_end: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    # A downgrade booked for the end of the current period, and the Stripe schedule holding it.
+    pending_plan: Mapped[str | None] = mapped_column(ForeignKey("plans.key"))
+    stripe_schedule_id: Mapped[str | None] = mapped_column(String(255))
+    # The price the subscription is billed at (may be a retired price: grandfathered).
+    plan_price_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("plan_prices.id", ondelete="SET NULL")
+    )
     rating_avg: Mapped[Decimal | None] = mapped_column(Numeric(2, 1))
     review_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

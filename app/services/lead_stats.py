@@ -71,3 +71,13 @@ def installers_matched() -> ColumnElement[int]:
         .correlate(QuoteRequest)
         .scalar_subquery()
     )
+
+
+def installers_responded() -> ColumnElement[int]:
+    """Installers who answered the request (a message or a quote): they hold its places."""
+    return (
+        select(func.count(QuoteMatch.id))
+        .where(QuoteMatch.quote_request_id == QuoteRequest.id, QuoteMatch.responded_at.is_not(None))
+        .correlate(QuoteRequest)
+        .scalar_subquery()
+    )

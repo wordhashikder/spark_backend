@@ -17,6 +17,7 @@ from tests.helpers import (
     PASSWORD,
     STOCKPORT,
     Fakes,
+    Plan,
     auth_headers,
     create_installer,
     create_user,
@@ -48,7 +49,7 @@ async def test_overview_kpis_chart_areas_and_recent_leads(
     assert data["leads"]["value"] == 2
     assert data["active_installers"]["value"] == 1
     assert data["match_rate"]["value"] == 100.0
-    assert "of 5 installers" in data["match_rate"]["hint"]
+    assert "installers told per lead" in data["match_rate"]["hint"]
     assert len(data["monthly"]) == 6
     assert data["monthly"][-1]["leads"] == 2
     assert data["leads_by_area"] == [{"key": "Manchester", "count": 2}]
@@ -275,6 +276,41 @@ async def test_team_sends_a_request_to_chosen_installers(
     one = (await client.get(f"{ADMIN}/quotes/{quote.id}", headers=owner)).json()
     assert one["reference"] == quote.reference
     assert one["installers_matched"] == 2
+
+
+async def test_team_can_notify_more_installers_than_the_quote_limit_including_free_ones(
+    client: httpx.AsyncClient, db: AsyncSession, fakes: Fakes
+):
+    _, owner = await _staff(db)
+    await client.put(
+        f"{ADMIN}/settings",
+        json={
+            "lead_matching": {"automatic": False, "max_installers": 1},
+            "notifications": {"email_alerts": True, "sms_alerts": False},
+            "organisation": {"platform_name": "PickASparky", "support_email": "a@example.com"},
+        },
+        headers=owner,
+    )
+    chosen = [
+        await create_installer(db, "Pro One"),
+        await create_installer(db, "Pro Two"),
+        await create_installer(db, "Free One", plan=Plan.FREE),
+    ]
+    await client.post("/api/v1/quotes", json=quote_payload())
+    quote = await db.scalar(select(QuoteRequest))
+
+    candidates = (await client.get(f"{ADMIN}/quotes/{quote.id}/candidates", headers=owner)).json()
+    assert {c["business_name"] for c in candidates} == {"Pro One", "Pro Two", "Free One"}
+    assigned = await client.post(
+        f"{ADMIN}/quotes/{quote.id}/assign",
+        json={"installer_ids": [str(installer.id) for installer in chosen]},
+        headers=owner,
+    )
+    assert assigned.status_code == 200, assigned.text
+    assert len(assigned.json()) == 3
+    leads = fakes.emails.of("new_lead")
+    assert len(leads) == 3
+    assert {email.context["max_quotes"] for email in leads} == {1}
 
 
 # ---- Messages -----------------------------------------------------------------------------

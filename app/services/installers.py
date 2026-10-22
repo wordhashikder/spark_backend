@@ -3,12 +3,13 @@
 import re
 import unicodedata
 import uuid
+from typing import Any
 
-from sqlalchemy import func, nulls_last, or_, select
+from sqlalchemy import ColumnElement, func, nulls_last, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.core.enums import InstallerStatus, Plan
+from app.core.enums import InstallerStatus
 from app.core.exceptions import FieldValidationError, ForbiddenError, NotFoundError
 from app.core.plans import capabilities_for, sort_rank_expression
 from app.models import Installer, InstallerAccreditation, InstallerPhoto, User
@@ -27,14 +28,18 @@ _WITH_PROFILE = (
     selectinload(Installer.accreditations),
     selectinload(Installer.photos),
 )
-_LISTING_ORDER = (
-    sort_rank_expression(Installer.plan).desc(),
-    Installer.is_featured.desc(),
-    nulls_last(Installer.rating_avg.desc()),
-    Installer.review_count.desc(),
-    Installer.business_name,
-    Installer.id,
-)
+
+
+def _listing_order() -> tuple[ColumnElement[Any], ...]:
+    """Best plan first. Built per query: the plan ranks come from the live catalogue."""
+    return (
+        sort_rank_expression(Installer.plan).desc(),
+        Installer.is_featured.desc(),
+        nulls_last(Installer.rating_avg.desc()),
+        Installer.review_count.desc(),
+        Installer.business_name,
+        Installer.id,
+    )
 
 
 class PlanLimitError(ForbiddenError):
@@ -82,7 +87,7 @@ async def create(
     business_name: str,
     contact_name: str,
     phone: str,
-    requested_plan: Plan,
+    requested_plan: str,
     place: GeocodedPostcode,
 ) -> Installer:
     """Add a pending, free-plan installer based at `place` (the caller commits)."""
@@ -125,7 +130,7 @@ async def list_public(
         select(Installer)
         .where(*filters)
         .options(joinedload(Installer.location))
-        .order_by(*_LISTING_ORDER)
+        .order_by(*_listing_order())
         .offset(offset)
         .limit(limit)
     )

@@ -4,9 +4,9 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import LeadStatus, Plan, Role
+from app.core.enums import LeadStatus, Role
 from app.models import QuoteMatch
-from tests.helpers import Fakes, auth_headers, create_installer, create_user, quote_payload
+from tests.helpers import Fakes, Plan, auth_headers, create_installer, create_user, quote_payload
 
 OFFER = {
     "amount": "949.00",

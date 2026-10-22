@@ -1,0 +1,9 @@
+We couldn't take the latest payment for the {{ plan_name }} plan on {{ business_name }}.
+
+Until it is paid your listing is back on the Free plan, so you can't open or answer new enquiries. Your {{ plan_name }} benefits return as soon as the payment goes through.
+
+Update your payment method: {{ billing_url }}
+
+Stripe will retry the payment automatically. If you need a hand, contact {{ support_email }}.
+
+PickASparky

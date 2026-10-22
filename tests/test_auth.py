@@ -71,6 +71,7 @@ async def test_register_verify_login_and_me(
             "business_name": "Bright Sparks Ltd",
             "status": "pending",
             "plan": "free",
+            "plan_name": "Free",
             "subscription_status": "none",
         },
         "full_name": None,
@@ -184,10 +185,16 @@ async def test_registration_validation(client: httpx.AsyncClient, fakes: Fakes):
 
     invalid = await client.post(
         "/api/v1/auth/register",
-        json=REGISTRATION | {"accept_terms": False, "phone": "12345", "plan": "gold"},
+        json=REGISTRATION | {"accept_terms": False, "phone": "12345", "plan": "Gold Plan!"},
     )
     assert invalid.status_code == 422
     assert set(invalid.json()["error"]["fields"]) == {"accept_terms", "phone", "plan"}
+
+    # A well-formed key that is not a plan on offer is refused too, before any account exists.
+    unknown_plan = await client.post("/api/v1/auth/register", json=REGISTRATION | {"plan": "gold"})
+    assert unknown_plan.status_code == 422
+    assert set(unknown_plan.json()["error"]["fields"]) == {"plan"}
+    assert fakes.emails.sent == []
 
     fakes.geocoder.unavailable = True
     down = await client.post("/api/v1/auth/register", json=REGISTRATION)

@@ -17,7 +17,7 @@ async def installer_summary(session: AsyncSession, installer: Installer) -> Inst
     own_lead = QuoteMatch.installer_id == installer.id
     own_offer = Offer.installer_id == installer.id
     return InstallerSummary(
-        plan=installer.plan.value,
+        plan=installer.plan,
         receives_leads=capabilities_for(installer.plan).receives_leads,
         is_claimed=installer.is_claimed,
         status=installer.status.value,

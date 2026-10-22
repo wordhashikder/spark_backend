@@ -19,6 +19,7 @@ import aiosmtplib
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
 from app.core.config import Settings, get_settings
+from app.core.enums import Service
 from app.models import (
     ContactMessage,
     Conversation,
@@ -29,6 +30,7 @@ from app.models import (
     QuoteRequest,
     User,
 )
+from app.services.geocoding import outward_code
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +236,20 @@ def installer_rejected(installer: Installer, to: str) -> Email:
     )
 
 
+def payment_failed(installer: Installer, to: str, *, previous_plan: str) -> Email:
+    """A subscription payment was declined; the paid plan is paused until it is paid."""
+    return Email(
+        to=to,
+        subject="Your PickASparky payment didn't go through",
+        template="payment_failed",
+        context={
+            "business_name": installer.business_name,
+            "plan_name": previous_plan,
+            "billing_url": _dashboard_url("/billing"),
+        },
+    )
+
+
 def magic_link(customer: Customer, link: str) -> Email:
     """Passwordless sign-in to the customer's quote dashboard."""
     return Email(
@@ -297,23 +313,43 @@ def quote_shared(
     )
 
 
-def new_lead(quote: QuoteRequest, installer: Installer, to: str) -> Email:
+def _dashboard_url(path: str) -> str:
+    return f"{get_settings().dashboard_url}{path}"
+
+
+# How an enquiry reads in a sentence ("... to install an EV charger"), per service. A service
+# without an entry still reads correctly from its label, so adding one never breaks the email.
+_JOB_PHRASES: dict[Service, str] = {Service.EV_CHARGER_INSTALLATION: "install an EV charger"}
+
+
+def _job_phrase(service: Service) -> str:
+    return _JOB_PHRASES.get(service, f"help with {service.label.lower()}")
+
+
+def new_lead(
+    quote: QuoteRequest, installer: Installer, to: str, lead_id: uuid.UUID, max_quotes: int
+) -> Email:
+    """Tell an installer about an enquiry in their area (every plan, Free included).
+
+    Deliberately thin: first name, town, service and timeframe only. No phone, email or
+    answers, and no Reply-To of the customer, so the details are only reached by opening
+    the enquiry, which asks Free installers to upgrade first.
+    """
+    service = quote.service
+    location = quote.district or outward_code(quote.postcode)
     return Email(
         to=to,
-        subject=f"New enquiry in {quote.district or quote.postcode} ({quote.reference})",
+        subject=f"New Customer Enquiry : {service.label} in {location}",
         template="new_lead",
         context={
-            "business_name": installer.business_name,
-            "reference": quote.reference,
-            "answers": quote_summary(quote),
-            "customer": {
-                "first_name": quote.first_name,
-                "email": quote.email,
-                "phone": quote.phone,
-            },
-            "account_url": _account_url(),
+            "first_name": quote.first_name,
+            "location": location,
+            "service": service.label,
+            "job": _job_phrase(service),
+            "timeframe": quote.timing.label,
+            "max_quotes": max_quotes,
+            "url": _dashboard_url(f"/leads/{lead_id}"),
         },
-        reply_to=quote.email,
     )
 
 

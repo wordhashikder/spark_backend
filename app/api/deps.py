@@ -19,11 +19,11 @@ from app.core.rate_limit import client_ip
 from app.models import Customer, Installer, User
 from app.services import customers, installers, platform
 from app.services.access import access_for
-from app.services.billing import BillingGateway
 from app.services.email import Email, EmailSender
 from app.services.geocoding import Geocoder
 from app.services.revalidation import Revalidator
 from app.services.storage import ImageStorage
+from app.services.stripe_gateway import BillingGateway
 
 DEFAULT_PAGE_SIZE = 12
 MAX_PAGE_SIZE = 100

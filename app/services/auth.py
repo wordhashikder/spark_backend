@@ -18,11 +18,13 @@ from app.core.exceptions import (
     NotAuthenticatedError,
 )
 from app.core.permissions import MODULE_KEYS
+from app.core.plans import registry
 from app.models import AuthToken, RefreshToken, User
 from app.models.base import utcnow
 from app.schemas.auth import Me, MeInstaller, RegisterRequest, TokenPair
 from app.services import access, installers
 from app.services import email as emails
+from app.services import plans as plan_service
 from app.services.email import Email
 from app.services.geocoding import Geocoder
 
@@ -59,6 +61,7 @@ async def register(session: AsyncSession, data: RegisterRequest, geocoder: Geoco
     address is already registered, so the response never reveals which was the case.
     """
     place = await installers.geocode_or_field_error(geocoder, data.postcode, "postcode")
+    await plan_service.require_signup_plan(session, data.plan)
     password_hash = await security.hash_password(data.password)
     if await _user_by_email(session, data.email) is not None:
         return [emails.account_exists(data.email)]
@@ -272,6 +275,7 @@ async def get_profile(session: AsyncSession, user: User) -> Me:
             business_name=installer.business_name,
             status=installer.status,
             plan=installer.plan,
+            plan_name=registry.entry(installer.plan).name,
             subscription_status=installer.subscription_status,
         )
         if installer

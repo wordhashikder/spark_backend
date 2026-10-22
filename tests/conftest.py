@@ -30,8 +30,6 @@ os.environ.update(
         "CLOUDINARY_API_SECRET": "",
         "STRIPE_SECRET_KEY": "sk_test_dummy",
         "STRIPE_WEBHOOK_SECRET": "whsec_test_dummy",
-        "STRIPE_PRICE_PRO": "price_pro_test",
-        "STRIPE_PRICE_PREMIUM": "price_premium_test",
         "RATE_LIMIT_STORAGE_URI": "memory://",
         "MAX_QUOTE_MATCHES": "5",
         "ACCESS_TOKEN_EXPIRE_MINUTES": "15",
@@ -52,11 +50,15 @@ from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 from app.core.database import SessionFactory, engine  # noqa: E402
 from app.main import app as application  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.services import plans as plan_service  # noqa: E402
 from app.services import platform, seeding  # noqa: E402
 from tests.helpers import Fakes  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 _PRESERVED_TABLES = {"locations"}
+# The plan catalogue the migration seeds; every test starts from it (tests may edit plans).
+_PLAN_TABLES = ("plans", "plan_prices")
+_plan_snapshot: dict[str, list[dict[str, object]]] = {}
 
 
 async def _recreate_database() -> None:
@@ -71,11 +73,43 @@ async def _recreate_database() -> None:
         await connection.close()
 
 
+async def _snapshot_plans() -> None:
+    url = make_url(TEST_DATABASE_URL)
+    connection = await asyncpg.connect(
+        host=url.host,
+        port=url.port,
+        user=url.username,
+        password=url.password,
+        database=url.database,
+    )
+    try:
+        for table in _PLAN_TABLES:
+            rows = await connection.fetch(f"SELECT * FROM {table}")  # noqa: S608 - fixed names
+            _plan_snapshot[table] = [dict(row) for row in rows]
+    finally:
+        await connection.close()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def database() -> None:
     """Build the schema from an empty database with the real Alembic migration."""
     asyncio.run(_recreate_database())
     command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
+    asyncio.run(_snapshot_plans())
+
+
+async def _restore_plans() -> None:
+    async with engine.begin() as connection:
+        for table in _PLAN_TABLES:
+            for row in _plan_snapshot[table]:
+                columns = ", ".join(row)
+                values = ", ".join(f":{column}" for column in row)
+                await connection.execute(
+                    text(f"INSERT INTO {table} ({columns}) VALUES ({values})"),  # noqa: S608
+                    row,
+                )
+    async with SessionFactory() as session:
+        await plan_service.load_registry(session)
 
 
 @pytest.fixture(scope="session")
@@ -94,6 +128,7 @@ async def clean_tables(app: FastAPI) -> AsyncIterator[None]:
     )
     async with engine.begin() as connection:
         await connection.execute(text(f"TRUNCATE {tables} CASCADE"))
+    await _restore_plans()
     platform.clear_cache()
 
 

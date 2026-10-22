@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.core import security
-from app.core.enums import InstallerStatus, Plan, QuoteStatus
-from app.models import QuoteMatch, QuoteRequest
-from tests.helpers import LEEDS, SALFORD, STOCKPORT, Fakes, create_installer, quote_payload
+from app.core.enums import InstallerStatus, QuoteStatus
+from app.models import Installer, QuoteMatch, QuoteRequest
+from tests.helpers import LEEDS, SALFORD, STOCKPORT, Fakes, Plan, create_installer, quote_payload
 
 
 async def _matched_names(db: AsyncSession) -> list[str]:
@@ -43,11 +43,19 @@ async def test_quote_is_matched_by_plan_then_distance(
     assert body == {
         "reference": body["reference"],
         "postcode": "M1 1AA",
-        "matched_installers": 4,
+        "matched_installers": 5,
         "held": False,
     }
 
-    expected = ["Premium Manchester", "Premium Stockport", "Pro Salford", "Pro Stockport"]
+    # Everyone approved who covers the address is told (Free included, last); pending
+    # listings and installers whose circle does not reach the address are not.
+    expected = [
+        "Premium Manchester",
+        "Premium Stockport",
+        "Pro Salford",
+        "Pro Stockport",
+        "Free Manchester",
+    ]
     assert await _matched_names(db) == expected
 
     quote = await db.scalar(select(QuoteRequest))
@@ -61,26 +69,50 @@ async def test_quote_is_matched_by_plan_then_distance(
     assert (confirmation.template, confirmation.to) == ("quote_confirmation", "sam@example.com")
     assert confirmation.context["installer_names"] == expected
     assert ("Timing", "Within a month") in confirmation.context["answers"]
-    assert [email.template for email in leads] == ["new_lead"] * 4
+    assert [email.template for email in leads] == ["new_lead"] * 5
     assert [email.to for email in leads] == [
         "premium-manchester@example.com",
         "premium-stockport@example.com",
         "pro-salford@example.com",
         "pro-stockport@example.com",
+        "free-manchester@example.com",
     ]
-    assert leads[0].context["customer"] == {
-        "first_name": "Sam",
-        "email": "sam@example.com",
-        "phone": "07700 900123",
-    }
+    # The installer email is deliberately thin: first name, town, service and timeframe,
+    # never the customer's phone, email or answers, and a link to the exact lead.
+    first = leads[0]
+    assert first.subject == "New Customer Enquiry : EV charger installation in Manchester"
+    assert first.reply_to is None
+    premium = await db.scalar(
+        select(QuoteMatch)
+        .join(QuoteMatch.installer)
+        .where(Installer.business_name == "Premium Manchester")
+    )
+    assert (
+        first.context.items()
+        >= {
+            "first_name": "Sam",
+            "location": "Manchester",
+            "service": "EV charger installation",
+            "job": "install an EV charger",
+            "timeframe": "Within a month",
+            "max_quotes": 5,
+            "url": f"http://localhost:5173/leads/{premium.id}",
+        }.items()
+    )
 
 
-async def test_at_most_five_installers_are_matched(client: httpx.AsyncClient, db: AsyncSession):
+async def test_every_eligible_installer_is_notified_however_many_there_are(
+    client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
+):
     for index in range(7):
         await create_installer(db, f"Installer {index}")
+    await create_installer(db, "Free Installer", plan=Plan.FREE)
     response = await client.post("/api/v1/quotes", json=quote_payload())
-    assert response.json()["matched_installers"] == 5
-    assert await db.scalar(select(func.count()).select_from(QuoteMatch)) == 5
+    assert response.json()["matched_installers"] == 8
+    assert await db.scalar(select(func.count()).select_from(QuoteMatch)) == 8
+    assert len(fakes.emails.of("new_lead")) == 8
+    # Free installers are told too: the email is how they learn to upgrade.
+    assert "free-installer@example.com" in [e.to for e in fakes.emails.of("new_lead")]
 
 
 async def test_better_rated_installers_win_ties(client: httpx.AsyncClient, db: AsyncSession):
@@ -112,14 +144,17 @@ async def test_direct_quote_to_a_free_installer_falls_back_to_normal_matching(
     for slug in (free.slug, "no-such-installer"):
         response = await client.post("/api/v1/quotes", json=quote_payload(installer_slug=slug))
         assert response.status_code == 201
-        assert response.json()["matched_installers"] == 1
-    assert set(await _matched_names(db)) == {"Pro Manchester"}
+        assert response.json()["matched_installers"] == 2
+    # A Free installer asked for by name gets no priority: the Pro one still comes first.
+    assert (await _matched_names(db))[:2] == ["Pro Manchester", "Free Manchester"]
 
 
 async def test_unmatched_quote_notifies_support(
     client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
 ):
-    await create_installer(db, "Free Manchester", plan=Plan.FREE)
+    await create_installer(db, "Pending Manchester", status=InstallerStatus.PENDING)
+    await create_installer(db, "Suspended Manchester", status=InstallerStatus.SUSPENDED)
+    await create_installer(db, "Rejected Manchester", status=InstallerStatus.REJECTED)
     response = await client.post("/api/v1/quotes", json=quote_payload())
     assert response.status_code == 201
     assert response.json()["matched_installers"] == 0
@@ -230,11 +265,11 @@ async def test_phone_number_is_optional(client: httpx.AsyncClient, fakes: Fakes,
 
     phones = (await db.scalars(select(QuoteRequest.phone))).all()
     assert phones == [None, None, None, None]
-    # The installer is told to reply by email; the template renders without a number.
+    # The installer email never carries contact details, so it renders the same without one.
     lead = fakes.emails.of("new_lead")[0]
-    assert lead.context["customer"]["phone"] is None
+    assert "phone" not in str(lead.context)
     rendered = fakes.emails._renderer.render(lead).get_body(preferencelist=("plain",))
-    assert "No phone number given" in rendered.get_content()
+    assert "Customer: Sam" in rendered.get_content()
 
     # A number that is given must still be a valid one.
     invalid = await client.post("/api/v1/quotes", json=quote_payload(phone="12345"))
@@ -311,3 +346,25 @@ async def test_visitor_ip_is_taken_from_the_frontend_only_with_the_internal_toke
     ).all()
     peer, visitor = security.hash_ip("127.0.0.1"), security.hash_ip("203.0.113.9")
     assert hashes == [peer, visitor, peer]
+
+
+def test_installer_email_follows_the_service_of_the_request():
+    """Subject and wording follow the request's service, so new services need no email change."""
+    import uuid
+    from types import SimpleNamespace
+
+    from app.core.enums import Service, Timing
+    from app.services import email as emails
+
+    quote = SimpleNamespace(
+        first_name="Gemma",
+        district="Romford",
+        postcode="RM1 1AA",
+        timing=Timing.WITHIN_2_WEEKS,
+        service=Service.SMART_HOME,
+    )
+    installer = SimpleNamespace(business_name="Any")
+    mail = emails.new_lead(quote, installer, "a@example.com", uuid.uuid4(), 5)
+    assert mail.subject == "New Customer Enquiry : Smart home in Romford"
+    assert mail.context["service"] == "Smart home"
+    assert mail.context["job"] == "help with smart home"

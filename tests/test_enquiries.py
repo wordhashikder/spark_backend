@@ -7,9 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
-from app.core.enums import InstallerStatus, Plan, Role
+from app.core.enums import InstallerStatus, Role
 from app.models import InstallerEnquiry
-from tests.helpers import Fakes, auth_headers, create_installer, create_user
+from tests.helpers import Fakes, Plan, auth_headers, create_installer, create_user
 
 
 def enquiry_payload(**overrides: Any) -> dict[str, Any]:

@@ -1,11 +1,13 @@
 """Fakes for external services and factories for arranging test data."""
 
+import copy
 import itertools
 import json
 import re
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 import stripe
@@ -15,8 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
 from app.core.config import get_settings
-from app.core.enums import InstallerStatus, Plan, ReviewStatus, Role, StaffRole
-from app.models import Installer, InstallerAccreditation, Location, Review, User
+from app.core.enums import InstallerStatus, ReviewStatus, Role, StaffRole, SubscriptionStatus
+from app.models import Installer, InstallerAccreditation, Location, PlanPrice, Review, User
+from app.models import Plan as PlanRow
 from app.models.base import utcnow
 from app.services.email import Email, SmtpEmailSender
 from app.services.geocoding import (
@@ -25,6 +28,15 @@ from app.services.geocoding import (
     PostcodeNotFoundError,
 )
 from app.services.storage import StoredImage
+
+
+class Plan:
+    """Shorthand for the plans the migration seeds (plans are database rows, not an enum)."""
+
+    FREE = "free"
+    PRO = "pro"
+    PREMIUM = "premium"
+
 
 PASSWORD = "Sup3rSecret-pass"
 # Hashed once: Argon2 is deliberately slow and most tests only need *a* valid hash.
@@ -92,27 +104,131 @@ class FakeStorage:
 
 @dataclass
 class FakeBillingGateway:
+    """An in-memory Stripe: products, prices, subscriptions, schedules and checkouts."""
+
     customers: list[dict[str, str]] = field(default_factory=list)
     checkouts: list[dict[str, Any]] = field(default_factory=list)
-    subscriptions: dict[str, Mapping[str, Any]] = field(default_factory=dict)
+    checkout_sessions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    subscriptions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    schedules: dict[str, dict[str, Any]] = field(default_factory=dict)
+    products: dict[str, dict[str, Any]] = field(default_factory=dict)
+    prices: dict[str, dict[str, Any]] = field(default_factory=dict)
+    archived_prices: list[str] = field(default_factory=list)
+    archived_products: list[str] = field(default_factory=list)
+    released_schedules: list[str] = field(default_factory=list)
+    price_changes: list[dict[str, str]] = field(default_factory=list)
+    decline_price_change: bool = False
+    fail_catalogue: bool = False
 
+    # ---- Catalogue ----
+    async def upsert_product(
+        self, *, product_id: str | None, key: str, name: str, description: str | None
+    ) -> str:
+        if self.fail_catalogue:
+            raise stripe.APIConnectionError("Stripe is down")
+        product_id = product_id or f"prod_{key}"
+        self.products[product_id] = {"key": key, "name": name, "description": description}
+        return product_id
+
+    async def archive_product(self, product_id: str) -> None:
+        self.archived_products.append(product_id)
+
+    async def create_price(
+        self, *, product_id: str, key: str, amount_pence: int, currency: str, interval: str
+    ) -> str:
+        price_id = f"price_{key}_{len(self.prices) + 1}"
+        self.prices[price_id] = {
+            "product": product_id,
+            "key": key,
+            "amount_pence": amount_pence,
+            "currency": currency,
+            "interval": interval,
+        }
+        return price_id
+
+    async def archive_price(self, price_id: str) -> None:
+        self.archived_prices.append(price_id)
+
+    # ---- Customers and checkout ----
     async def create_customer(self, *, email: str, name: str, installer_id: str) -> str:
         self.customers.append({"email": email, "name": name, "installer_id": installer_id})
         return f"cus_test_{len(self.customers)}"
 
     async def create_checkout_session(
-        self, *, customer_id: str, price_id: str, installer_id: str, plan: Plan
+        self,
+        *,
+        customer_id: str,
+        price_id: str,
+        installer_id: str,
+        plan_key: str,
+        success_url: str,
+        cancel_url: str,
     ) -> str:
         self.checkouts.append(
-            {"customer_id": customer_id, "price_id": price_id, "installer_id": installer_id}
+            {
+                "customer_id": customer_id,
+                "price_id": price_id,
+                "installer_id": installer_id,
+                "plan_key": plan_key,
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            }
         )
-        return f"https://checkout.stripe.test/{plan.value}"
+        return f"https://checkout.stripe.test/{plan_key}"
 
-    async def create_portal_session(self, *, customer_id: str) -> str:
+    async def get_checkout_session(self, session_id: str) -> Mapping[str, Any]:
+        return copy.deepcopy(self.checkout_sessions[session_id])
+
+    async def create_portal_session(self, *, customer_id: str, return_url: str) -> str:
+        self.portal_return_url = return_url
         return f"https://portal.stripe.test/{customer_id}"
 
+    # ---- Subscriptions ----
     async def get_subscription(self, subscription_id: str) -> Mapping[str, Any]:
-        return self.subscriptions[subscription_id]
+        return copy.deepcopy(self.subscriptions[subscription_id])
+
+    async def change_price(
+        self, *, subscription_id: str, item_id: str, price_id: str
+    ) -> Mapping[str, Any]:
+        if self.decline_price_change:
+            raise stripe.CardError("Your card was declined.", "card", "card_declined")
+        subscription = self.subscriptions[subscription_id]
+        subscription["items"]["data"][0]["price"] = {"id": price_id}
+        subscription["cancel_at_period_end"] = False
+        self.price_changes.append({"subscription": subscription_id, "price": price_id})
+        return copy.deepcopy(subscription)
+
+    async def set_cancel_at_period_end(
+        self, *, subscription_id: str, cancel: bool
+    ) -> Mapping[str, Any]:
+        subscription = self.subscriptions[subscription_id]
+        subscription["cancel_at_period_end"] = cancel
+        return copy.deepcopy(subscription)
+
+    async def schedule_price_change(
+        self, *, subscription_id: str, price_id: str
+    ) -> Mapping[str, Any]:
+        subscription = self.subscriptions[subscription_id]
+        schedule_id = f"sub_sched_{len(self.schedules) + 1}"
+        current = subscription["items"]["data"][0]["price"]["id"]
+        self.schedules[schedule_id] = {
+            "id": schedule_id,
+            "subscription": subscription_id,
+            "customer": subscription["customer"],
+            "status": "active",
+            "phases": [
+                {"items": [{"price": current}]},
+                {"items": [{"price": price_id}]},
+            ],
+        }
+        subscription["schedule"] = schedule_id
+        return copy.deepcopy(self.schedules[schedule_id])
+
+    async def release_schedule(self, schedule_id: str) -> None:
+        self.released_schedules.append(schedule_id)
+        schedule = self.schedules.pop(schedule_id, None)
+        if schedule is not None:
+            self.subscriptions[schedule["subscription"]]["schedule"] = None
 
 
 @dataclass
@@ -183,7 +299,7 @@ async def create_installer(
     *,
     at: tuple[float, float] = MANCHESTER,
     location: str = "manchester",
-    plan: Plan = Plan.PRO,
+    plan: str = Plan.PRO,
     status: InstallerStatus = InstallerStatus.APPROVED,
     radius: int = 15,
     featured: bool = False,
@@ -295,13 +411,23 @@ def signed_stripe_event(
 
 
 def subscription_object(
-    installer: Installer, *, status: str, price_id: str, subscription_id: str = "sub_test_1"
+    installer: Installer,
+    *,
+    status: str,
+    price_id: str,
+    subscription_id: str = "sub_test_1",
+    cancel_at_period_end: bool = False,
+    schedule: str | None = None,
+    latest_invoice: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "id": subscription_id,
         "object": "subscription",
         "customer": installer.stripe_customer_id or "cus_test_1",
         "status": status,
+        "cancel_at_period_end": cancel_at_period_end,
+        "schedule": schedule,
+        "latest_invoice": dict(latest_invoice) if latest_invoice else None,
         "metadata": {"installer_id": str(installer.id)},
         "items": {
             "object": "list",
@@ -310,3 +436,85 @@ def subscription_object(
             ],
         },
     }
+
+
+def invoice_object(
+    installer: Installer,
+    *,
+    invoice_id: str = "in_test_1",
+    status: str = "paid",
+    amount: int = 2900,
+    price_id: str | None = None,
+    reason: str = "subscription_create",
+) -> dict[str, Any]:
+    paid = status == "paid"
+    line: dict[str, Any] = {
+        "description": "1 x Plan (at £29.00 / month)",
+        "period": {"start": 1_797_000_000, "end": 1_800_000_000},
+    }
+    if price_id:
+        line["price"] = {"id": price_id}
+    return {
+        "id": invoice_id,
+        "object": "invoice",
+        "customer": installer.stripe_customer_id or "cus_test_1",
+        "number": "TEST-0001",
+        "status": status,
+        "amount_due": amount,
+        "amount_paid": amount if paid else 0,
+        "currency": "gbp",
+        "billing_reason": reason,
+        "hosted_invoice_url": "https://invoice.stripe.test/i/1",
+        "invoice_pdf": "https://invoice.stripe.test/i/1/pdf",
+        "created": 1_797_000_000,
+        "status_transitions": {"paid_at": 1_797_000_100 if paid else None},
+        "lines": {"data": [line]},
+    }
+
+
+async def link_stripe_prices(db: AsyncSession) -> dict[str, str]:
+    """Give the seeded paid plans Stripe ids, as if they had already been synced."""
+    ids = {"pro": "price_pro_test", "premium": "price_premium_test"}
+    for key, price_id in ids.items():
+        plan = await db.get(PlanRow, key)
+        plan.stripe_product_id = f"prod_{key}"
+        price = await db.scalar(
+            select(PlanPrice).where(PlanPrice.plan_key == key, PlanPrice.is_active)
+        )
+        price.stripe_price_id = price_id
+    await db.commit()
+    return ids
+
+
+async def create_subscriber(
+    db: AsyncSession,
+    fakes: Fakes,
+    name: str = "Subscriber Electrical",
+    *,
+    plan: str = Plan.PRO,
+    status: str = "active",
+    subscription_id: str = "sub_test_1",
+    cancel_at_period_end: bool = False,
+) -> Installer:
+    """An installer paying for `plan`: Stripe ids linked, subscription known to the fake."""
+    prices = await link_stripe_prices(db)
+    installer = await create_installer(db, name, plan=plan)
+    row = await db.scalar(
+        select(PlanPrice).where(PlanPrice.stripe_price_id == prices[plan], PlanPrice.is_active)
+    )
+    installer.stripe_customer_id = f"cus_{installer.slug}"
+    installer.stripe_subscription_id = subscription_id
+    installer.subscription_status = SubscriptionStatus.ACTIVE
+    installer.plan_price_id = row.id
+    installer.current_period_end = datetime(2027, 1, 15, tzinfo=UTC)
+    installer.cancel_at_period_end = cancel_at_period_end
+    db.add(installer)
+    await db.commit()
+    fakes.billing.subscriptions[subscription_id] = subscription_object(
+        installer,
+        status=status,
+        price_id=prices[plan],
+        subscription_id=subscription_id,
+        cancel_at_period_end=cancel_at_period_end,
+    )
+    return installer

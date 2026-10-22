@@ -5,8 +5,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, StringConstraints, field_validator
 
-from app.core.enums import InstallerStatus, Plan, Role, StaffRole, SubscriptionStatus
+from app.core.enums import InstallerStatus, Role, StaffRole, SubscriptionStatus
 from app.schemas.common import Email, OpaqueToken, Password, Phone, Postcode, text
+from app.schemas.plan import PlanKey
 
 # Login accepts any string and simply fails to match: malformed input must not be
 # distinguishable from a wrong password.
@@ -22,7 +23,7 @@ class RegisterRequest(BaseModel):
     contact_name: Annotated[str, text(2, 80)]
     phone: Phone
     postcode: Postcode
-    plan: Plan
+    plan: PlanKey
     accept_terms: bool
 
     @field_validator("accept_terms")
@@ -66,7 +67,8 @@ class MeInstaller(BaseModel):
     slug: str
     business_name: str
     status: InstallerStatus
-    plan: Plan
+    plan: str
+    plan_name: str
     subscription_status: SubscriptionStatus
 
 

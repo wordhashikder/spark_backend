@@ -66,6 +66,12 @@ MODULES: tuple[Module, ...] = (
         ("settings", "platform"),
     ),
     Module(
+        "billing",
+        "Plans & billing",
+        "Membership plans and prices, subscriptions, payments and Stripe sync (owners by default).",
+        ("plans", "payments"),
+    ),
+    Module(
         "team",
         "Team & roles",
         "Invite team members, change their roles, edit this matrix (owners only).",

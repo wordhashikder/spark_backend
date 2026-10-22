@@ -16,8 +16,9 @@ from typing import Any
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import AccreditationScheme, InstallerStatus, Plan, Service
+from app.core.enums import AccreditationScheme, InstallerStatus, Service
 from app.core.exceptions import FieldValidationError
+from app.core.plans import DEFAULT_PLAN_KEY
 from app.schemas.admin import AdminInstallerCreate, ImportReport, ImportRowError
 from app.services import admin
 from app.services.geocoding import Geocoder
@@ -84,7 +85,7 @@ def _row_payload(row: dict[str, str]) -> dict[str, Any]:
         "contact_name": row.get("contact_name") or None,
         "description": row.get("description") or None,
         "status": InstallerStatus.APPROVED,
-        "plan": Plan.FREE,
+        "plan": DEFAULT_PLAN_KEY,
     }
     if row.get("accreditations"):
         payload["accreditations"] = _choices(row["accreditations"], AccreditationScheme)

@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 
 from app.api.deps import (
     AccessDep,
+    BillingGatewayDep,
     CacheRefreshDep,
     EmailQueueDep,
     GeocoderDep,
@@ -29,7 +30,6 @@ from app.core.enums import (
     BlogPostStatus,
     InstallerSource,
     InstallerStatus,
-    Plan,
     QuoteStatus,
     ReviewStatus,
     StaffRole,
@@ -58,12 +58,14 @@ from app.schemas.admin import (
     StageCounts,
     TeamMessageCreate,
 )
+from app.schemas.billing import AdminInvoice, InvoiceOut, PaymentsOverview, StripeSyncResult
 from app.schemas.blog import AdminBlogPost, BlogPostCreate, BlogPostUpdate
 from app.schemas.common import Message, Paginated
 from app.schemas.content import ContentDocument, ContentRevision, ContentSummary, ContentUpdate
 from app.schemas.conversation import ConversationDetail, ConversationSummary, MessageOut
 from app.schemas.enquiry import AdminEnquiry
 from app.schemas.location import AdminLocation, AdminLocationCreate, AdminLocationUpdate
+from app.schemas.plan import AdminPlan, PlanChoice, PlanCreate, PlanUpdate
 from app.schemas.team import (
     InviteCreate,
     RoleMatrix,
@@ -73,6 +75,7 @@ from app.schemas.team import (
 )
 from app.services import (
     admin,
+    billing,
     blog,
     claims,
     content,
@@ -86,6 +89,7 @@ from app.services import (
     platform,
     team,
 )
+from app.services import plans as plan_service
 from app.services.storage import validate_image
 
 AltForm = Annotated[str | None, Form(max_length=160)]
@@ -270,7 +274,7 @@ async def list_installers(
     page: PageDep,
     status: InstallerStatus | None = None,
     source: InstallerSource | None = None,
-    plan: Plan | None = None,
+    plan: Annotated[str | None, Query(max_length=40)] = None,
     claimed: bool | None = None,
     q: SearchQuery = None,
 ) -> Paginated[AdminInstaller]:
@@ -290,6 +294,15 @@ async def list_installers(
         page=page.page,
         page_size=page.page_size,
     )
+
+
+@router.get("/installers/plan-options")
+async def installer_plan_options(session: SessionDep) -> list[PlanChoice]:
+    """Every plan an installer can be given or filtered by (for the Installers screen)."""
+    return [
+        PlanChoice(key=p.key, name=p.name, is_active=p.is_active, is_default=p.is_default)
+        for p in await plan_service.list_plans(session)
+    ]
 
 
 @router.post("/installers", status_code=status.HTTP_201_CREATED)
@@ -565,7 +578,7 @@ async def assign_quote(
         session,
         quote_id,
         data.installer_ids,
-        max_installers=platform_settings.lead_matching.max_installers,
+        max_quotes=platform_settings.lead_matching.max_installers,
     )
     emails.send(outbox)
     return [AdminQuoteMatch.from_match(match) for match in matches]
@@ -827,3 +840,107 @@ async def send_customer_link(
 async def delete_customer(customer_id: uuid.UUID, session: SessionDep) -> None:
     """Erase a customer record on request. Their quote requests stay as lead history."""
     await customers.erase(session, await customers.admin_get(session, customer_id))
+
+
+# ---- Plans & billing ------------------------------------------------------------------------
+
+
+async def _admin_plan(session: SessionDep, key: str) -> AdminPlan:
+    plan = await plan_service.get_plan(session, key)
+    counts = await plan_service.usage_counts(session)
+    installers, subscriptions = counts.get(key, (0, 0))
+    return AdminPlan.from_plan(plan, installers=installers, subscriptions=subscriptions)
+
+
+@router.get("/plans")
+async def list_plans(session: SessionDep) -> list[AdminPlan]:
+    """Every plan, archived ones included, with how many installers are on each."""
+    counts = await plan_service.usage_counts(session)
+    return [
+        AdminPlan.from_plan(
+            plan,
+            installers=counts.get(plan.key, (0, 0))[0],
+            subscriptions=counts.get(plan.key, (0, 0))[1],
+        )
+        for plan in await plan_service.list_plans(session)
+    ]
+
+
+@router.post("/plans", status_code=status.HTTP_201_CREATED)
+async def create_plan(
+    data: PlanCreate, session: SessionDep, gateway: BillingGatewayDep, refresh: CacheRefreshDep
+) -> AdminPlan:
+    """Add a plan. A price creates the matching product and price in Stripe."""
+    plan = await plan_service.create_plan(session, data, gateway)
+    refresh("plans")
+    return await _admin_plan(session, plan.key)
+
+
+@router.post("/plans/sync-stripe")
+async def sync_plans_with_stripe(
+    session: SessionDep, gateway: BillingGatewayDep, refresh: CacheRefreshDep
+) -> StripeSyncResult:
+    """Create in Stripe whatever is missing (products and prices of plans saved earlier)."""
+    updated = await plan_service.sync_all(session, gateway)
+    refresh("plans")
+    return StripeSyncResult(plans_updated=updated)
+
+
+@router.patch("/plans/{key}")
+async def update_plan(
+    key: str,
+    data: PlanUpdate,
+    session: SessionDep,
+    gateway: BillingGatewayDep,
+    refresh: CacheRefreshDep,
+) -> AdminPlan:
+    """Edit a plan. A new price applies to new subscribers; current ones keep theirs."""
+    await plan_service.update_plan(session, key, data, gateway)
+    refresh("plans", "installers", "locations")
+    return await _admin_plan(session, key)
+
+
+@router.delete("/plans/{key}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_plan(
+    key: str, session: SessionDep, gateway: BillingGatewayDep, refresh: CacheRefreshDep
+) -> None:
+    """Delete a plan nobody is on. Archive it instead to retire one that is in use."""
+    await plan_service.delete_plan(session, key, gateway)
+    refresh("plans")
+
+
+@router.get("/payments/overview")
+async def payments_overview(session: SessionDep) -> PaymentsOverview:
+    return await billing.payments_overview(session)
+
+
+@router.get("/payments")
+async def list_payments(
+    session: SessionDep,
+    page: PageDep,
+    status: Annotated[str | None, Query(max_length=20)] = None,
+    installer_id: uuid.UUID | None = None,
+    q: SearchQuery = None,
+) -> Paginated[AdminInvoice]:
+    """Every installer's invoices, newest first."""
+    rows, total = await billing.list_all_invoices(
+        session,
+        status=status,
+        search=q,
+        installer_id=installer_id,
+        offset=page.offset,
+        limit=page.page_size,
+    )
+    return Paginated.build(
+        [
+            AdminInvoice(
+                **InvoiceOut.from_invoice(row.invoice).model_dump(),
+                installer_id=str(row.invoice.installer_id),
+                business_name=row.business_name,
+            )
+            for row in rows
+        ],
+        total=total,
+        page=page.page,
+        page_size=page.page_size,
+    )

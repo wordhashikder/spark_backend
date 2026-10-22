@@ -17,7 +17,6 @@ from app.core.enums import (
     InstallerSource,
     InstallerStatus,
     LeadStatus,
-    Plan,
     QuoteStatus,
     ReviewStatus,
     Service,
@@ -25,6 +24,7 @@ from app.core.enums import (
     Timing,
 )
 from app.core.exceptions import FieldValueError
+from app.core.plans import DEFAULT_PLAN_KEY, registry
 from app.models import Installer, QuoteMatch, Review
 from app.models.installer import (
     DEFAULT_COVERAGE_RADIUS_MILES,
@@ -41,6 +41,7 @@ from app.schemas.installer import (
     WebsiteUrl,
     _unique,
 )
+from app.schemas.plan import PlanKey
 from app.services.platform import PlatformSettings
 
 
@@ -60,8 +61,12 @@ class AdminInstaller(BaseModel):
     base_postcode: str
     location_slug: str
     status: InstallerStatus
-    plan: Plan
-    requested_plan: Plan | None
+    plan: str
+    plan_name: str
+    requested_plan: str | None
+    cancel_at_period_end: bool
+    pending_plan: str | None
+    current_period_end: datetime | None
     is_featured: bool
     subscription_status: SubscriptionStatus
     rating_avg: float | None
@@ -98,7 +103,11 @@ class AdminInstaller(BaseModel):
             location_slug=installer.location.slug,
             status=installer.status,
             plan=installer.plan,
+            plan_name=registry.entry(installer.plan).name,
             requested_plan=installer.requested_plan,
+            cancel_at_period_end=installer.cancel_at_period_end,
+            pending_plan=installer.pending_plan,
+            current_period_end=installer.current_period_end,
             is_featured=installer.is_featured,
             subscription_status=installer.subscription_status,
             rating_avg=None if installer.rating_avg is None else float(installer.rating_avg),
@@ -137,7 +146,7 @@ class AdminInstallerUpdate(BaseModel):
     """Partial update by the team; only the fields sent change."""
 
     status: InstallerStatus | None = None
-    plan: Plan | None = None
+    plan: PlanKey | None = None
     is_featured: bool | None = None
     # The business email a listing can be claimed with; `null` clears it.
     contact_email: Annotated[Email | None, blank_as_none] = None
@@ -198,7 +207,7 @@ class AdminInstallerCreate(BaseModel):
         le=MAX_COVERAGE_RADIUS_MILES,
     )
     status: InstallerStatus = InstallerStatus.APPROVED
-    plan: Plan = Plan.FREE
+    plan: PlanKey = DEFAULT_PLAN_KEY
 
 
 class ImportRowError(BaseModel):
@@ -443,7 +452,8 @@ class QuoteCandidate(BaseModel):
     slug: str
     business_name: str
     town: str
-    plan: Plan
+    plan: str
+    plan_name: str
     rating_avg: float | None
     review_count: int
     # Null when the request's postcode could not be located.

@@ -2,6 +2,7 @@
 
 import logging
 import secrets
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,8 +67,10 @@ async def create_quote(
 ) -> tuple[QuoteCreated, list[Email]]:
     """Store a quote request, match it to installers and return the emails to send.
 
-    With automatic matching off (Settings), the request is held for the team to choose its
-    installers; only an installer the homeowner asked for by name receives it at once.
+    Every eligible installer covering the address is told (no cap); only the first
+    `rules.max_installers` to respond may quote. With automatic matching off (Settings), the
+    request is held for the team to choose its installers; only an installer the homeowner
+    asked for by name receives it at once.
     """
     rules = rules or LeadMatching(max_installers=get_settings().max_quote_matches)
     place = await _geocode(geocoder, data.postcode)
@@ -109,13 +112,19 @@ async def create_quote(
             latitude=place.latitude,
             longitude=place.longitude,
             target=target,
-            limit=rules.max_installers if rules.automatic else 1,
+            limit=None if rules.automatic else 1,
             nearby=rules.automatic,
         )
         if place
         else []
     )
-    session.add_all(QuoteMatch(quote_request=quote, installer=installer) for installer in matched)
+    leads = [
+        QuoteMatch(id=uuid.uuid7(), quote_request=quote, installer=installer)
+        for installer in matched
+    ]
+    session.add_all(leads)
+    match_ids = {lead.installer.id: lead.id for lead in leads}
+    slots = rules.max_installers
     held = not rules.automatic and not matched
     if matched:
         quote.status = QuoteStatus.MATCHED
@@ -128,7 +137,10 @@ async def create_quote(
         emails.quote_confirmation(
             quote, [installer.business_name for installer in matched], held=held, link=link
         ),
-        *(emails.new_lead(quote, installer, installer.user.email) for installer in matched),
+        *(
+            emails.new_lead(quote, installer, installer.user.email, match_ids[installer.id], slots)
+            for installer in matched
+        ),
     ]
     if not matched:
         outbox.append(emails.quote_unmatched(quote, held=held))

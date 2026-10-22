@@ -253,7 +253,7 @@ def installer_brief(installer: Installer) -> InstallerBrief:
         verified=installer.status is InstallerStatus.APPROVED and installer.is_claimed,
         years_experience=installer.years_experience,
         accreditations=[item.scheme.label for item in installer.accreditations if item.verified],
-        plan=installer.plan.value,
+        plan=installer.plan,
     )
 
 
@@ -403,7 +403,7 @@ async def _summary_and_parts(
         created_at=quote.created_at,
         installers_matched=len(matches),
         quotes_received=len(open_offers),
-        slots_total=max(slots_total, len(matches)),
+        slots_total=slots_total,
         average_price=average,
         lowest_price=lowest,
         unread_messages=await _unread_by_conversation(
@@ -437,6 +437,10 @@ async def request_detail(
     quotes: list[CustomerQuoteOut] = []
     installers: list[MatchedInstallerOut] = []
     for match in matches:
+        if match.responded_at is None:
+            # Everyone in the area is told about a request, but the homeowner only meets the
+            # installers who answered it.
+            continue
         brief = installer_brief(match.installer)
         conversation = conversations.get(match.id)
         offers = conversation.offers if conversation else []

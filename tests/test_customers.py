@@ -64,6 +64,13 @@ async def test_magic_link_signs_in_and_the_session_survives(
 
     detail = await client.get(f"/api/v1/customer/requests/{request['id']}", headers=headers)
     body = detail.json()
+    # Installers are told about the request, but the homeowner only meets those who answer.
+    assert body["installers"] == []
+    match = await db.scalar(select(QuoteMatch).where(QuoteMatch.installer_id == installer.id))
+    match.responded_at = utcnow()
+    await db.commit()
+    detail = await client.get(f"/api/v1/customer/requests/{request['id']}", headers=headers)
+    body = detail.json()
     assert body["installers"][0]["installer"]["business_name"] == installer.business_name
     assert body["installers"][0]["state"] == "awaiting_quote"
     assert [step["state"] for step in body["journey"]] == [

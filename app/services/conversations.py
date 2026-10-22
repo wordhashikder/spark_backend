@@ -29,6 +29,7 @@ from app.models import (
     InstallerEnquiry,
     Offer,
     QuoteMatch,
+    QuoteRequest,
     User,
 )
 from app.models.base import utcnow
@@ -60,7 +61,15 @@ _DETAIL = (
 
 class LeadsNotIncludedError(ForbiddenError):
     code = "plan_required"
-    message = "Upgrade to Pro or Premium to reply to customers and send quotes."
+    message = "Upgrade to a paid membership (Pro or Premium) to view this enquiry and respond."
+
+
+class EnquiryFullError(ConflictError):
+    code = "enquiry_full"
+    message = (
+        "This enquiry has already received the maximum number of installer quotes, "
+        "so it is no longer open to new responses."
+    )
 
 
 class OfferNotOpenError(ConflictError):
@@ -76,11 +85,65 @@ def _require_leads(installer: Installer) -> None:
         raise LeadsNotIncludedError
 
 
+async def _responders(session: AsyncSession, quote_request_id: uuid.UUID) -> int:
+    """How many installers have already answered this request (they hold its places)."""
+    return (
+        await session.scalar(
+            select(func.count())
+            .select_from(QuoteMatch)
+            .where(
+                QuoteMatch.quote_request_id == quote_request_id,
+                QuoteMatch.responded_at.is_not(None),
+            )
+        )
+        or 0
+    )
+
+
+async def require_open_place(
+    session: AsyncSession, installer: Installer, lead_id: uuid.UUID, slots: int
+) -> None:
+    """Refuse early (before the quote form opens) when a lead is full and not yours."""
+    row = (
+        await session.execute(
+            select(QuoteMatch.quote_request_id, QuoteMatch.responded_at).where(
+                QuoteMatch.id == lead_id, QuoteMatch.installer_id == installer.id
+            )
+        )
+    ).first()
+    if row is None:
+        raise NotFoundError("Lead not found.")
+    quote_request_id, responded_at = row
+    if responded_at is None and await _responders(session, quote_request_id) >= slots:
+        raise EnquiryFullError
+
+
+async def _take_place(session: AsyncSession, conversation: Conversation, slots: int) -> None:
+    """Hold one of the request's `slots` places for this installer's first reply.
+
+    Only the first few installers to respond may quote a request, however many were told
+    about it. The request row is locked while counting, so two installers answering at the
+    same moment cannot both take the last place. Later replies by the same installer
+    keep the place they already hold.
+    """
+    lead = conversation.quote_match
+    if lead is None or lead.responded_at is not None:
+        return
+    await session.execute(
+        select(QuoteRequest.id).where(QuoteRequest.id == lead.quote_request_id).with_for_update()
+    )
+    if await _responders(session, lead.quote_request_id) >= slots:
+        raise EnquiryFullError
+    lead.responded_at = utcnow()
+
+
 async def start(
-    session: AsyncSession, installer: Installer, data: ConversationStart
+    session: AsyncSession, installer: Installer, data: ConversationStart, slots: int
 ) -> Conversation:
     """Open (or return the existing) conversation for one of the installer's jobs."""
     _require_leads(installer)
+    if data.lead_id is not None:
+        await require_open_place(session, installer, data.lead_id, slots)
     existing = await session.scalar(
         select(Conversation.id).where(
             Conversation.installer_id == installer.id,
@@ -131,7 +194,7 @@ async def start(
         await session.commit()
     except IntegrityError:  # opened concurrently: use the other one
         await session.rollback()
-        return await start(session, installer, data)
+        return await start(session, installer, data, slots)
     return await _load(session, conversation.id)
 
 
@@ -164,9 +227,11 @@ async def installer_message(
     user: User,
     conversation_id: uuid.UUID,
     body: str,
+    slots: int,
 ) -> tuple[MessageOut, list[Email]]:
     _require_leads(installer)
     conversation = await _owned(session, installer, conversation_id, lock=True)
+    await _take_place(session, conversation, slots)
     message = _add_message(conversation, MessageSender.INSTALLER, body, author=user)
     conversation.installer_read_at = message.created_at
     _mark_contacted(conversation)
@@ -183,9 +248,11 @@ async def send_offer(
     user: User,
     conversation_id: uuid.UUID,
     data: OfferCreate,
+    slots: int,
 ) -> tuple[OfferOut, list[Email]]:
     _require_leads(installer)
     conversation = await _owned(session, installer, conversation_id, lock=True)
+    await _take_place(session, conversation, slots)
     offer = Offer(
         id=uuid.uuid7(),
         conversation_id=conversation.id,

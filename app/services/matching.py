@@ -5,29 +5,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.core.enums import InstallerStatus
-from app.core.plans import LEAD_RECEIVING_PLANS, capabilities_for, sort_rank_expression
+from app.core.plans import capabilities_for, lead_receiving_plan_keys, sort_rank_expression
 from app.models import Installer
 from app.services.geo import installer_covers_point, installer_distance_to
 
 
-def receives_leads() -> tuple:
-    """SQL filters selecting approved installers whose effective plan receives leads.
+def notifiable() -> tuple:
+    """SQL filters selecting the installers who are told about a new enquiry.
 
-    A listing nobody has claimed yet has no one to send leads to, whatever its plan.
+    Every approved installer with an account, Free and paid alike (pending, rejected,
+    paused and deleted ones are excluded). Free installers get the notification but must
+    upgrade before they can open the enquiry and respond. A listing nobody has claimed yet
+    has no one to email, so it is left out.
     """
     return (
         Installer.status == InstallerStatus.APPROVED,
-        Installer.plan.in_(LEAD_RECEIVING_PLANS),
         Installer.user_id.is_not(None),
     )
 
 
 async def count_in_range(session: AsyncSession, latitude: float, longitude: float) -> int:
-    """How many lead-receiving installers cover a point."""
+    """How many installers able to quote (full lead access) cover a point.
+
+    Free installers are notified of enquiries too, but cannot respond until they upgrade, so
+    they are not counted when telling a homeowner who can quote in their area.
+    """
     count = await session.scalar(
         select(func.count())
         .select_from(Installer)
-        .where(*receives_leads(), installer_covers_point(latitude, longitude))
+        .where(
+            *notifiable(),
+            Installer.plan.in_(lead_receiving_plan_keys()),
+            installer_covers_point(latitude, longitude),
+        )
     )
     return count or 0
 
@@ -47,14 +57,16 @@ async def match_installers(
     latitude: float,
     longitude: float,
     target: Installer | None,
-    limit: int,
+    limit: int | None = None,
     nearby: bool = True,
 ) -> list[Installer]:
     """Pick the installers to receive a quote request.
 
-    A requested installer that accepts direct quotes always comes first. The rest are
-    lead-receiving installers whose coverage circle contains the point, best plan first,
-    then nearest, then highest rated. `nearby=False` sends only to the requested installer.
+    A requested installer that accepts direct quotes always comes first. The rest are all
+    the notifiable installers whose coverage circle contains the point, best plan first,
+    then nearest, then highest rated: there is no cap, because only the first few to respond
+    may quote (see `conversations`), not the first few to be told. `limit` is for callers
+    that want fewer. `nearby=False` sends only to the requested installer.
     """
     matched: list[Installer] = []
     if (
@@ -64,12 +76,12 @@ async def match_installers(
     ):
         matched.append(target)
 
-    remaining = limit - len(matched)
-    if nearby and remaining > 0:
-        nearby = await session.scalars(
+    remaining = None if limit is None else limit - len(matched)
+    if nearby and (remaining is None or remaining > 0):
+        statement = (
             select(Installer)
             .where(
-                *receives_leads(),
+                *notifiable(),
                 installer_covers_point(latitude, longitude),
                 Installer.id.not_in([installer.id for installer in matched]),
             )
@@ -80,7 +92,8 @@ async def match_installers(
                 nulls_last(Installer.rating_avg.desc()),
                 Installer.id,
             )
-            .limit(remaining)
         )
-        matched.extend(nearby)
+        if remaining is not None:
+            statement = statement.limit(remaining)
+        matched.extend(await session.scalars(statement))
     return matched

@@ -5,6 +5,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     ClientIpDep,
@@ -20,6 +21,7 @@ from app.api.deps import (
 )
 from app.core.plans import capabilities_for
 from app.core.rate_limit import rate_limit
+from app.models import Installer, QuoteMatch
 from app.schemas.auth import ClaimRequest
 from app.schemas.common import Message, Paginated
 from app.schemas.conversation import (
@@ -41,7 +43,7 @@ from app.schemas.installer import (
     InstallerUpdate,
     Photo,
 )
-from app.schemas.quote import Lead, LeadProgress, LeadUpdate
+from app.schemas.quote import Lead, LeadUpdate
 from app.schemas.review import ReviewOut
 from app.services import claims, conversations, dashboard, enquiries, installers, leads, reviews
 
@@ -114,10 +116,29 @@ async def delete_photo(
     await installers.delete_photo(session, installer, photo_id, storage)
 
 
-def _with_slots(progress: LeadProgress | None, slots: int) -> LeadProgress | None:
-    if progress is None:
-        return None
-    return progress.model_copy(update={"slots_total": max(slots, progress.installers_matched)})
+async def _lead_out(
+    session: AsyncSession, installer: Installer, found: list[QuoteMatch], slots: int
+) -> list[Lead]:
+    """Leads as this installer may see them: the whole enquiry only with full lead access.
+
+    `access` tells the dashboard what to offer: "open" (view and respond), "upgrade_required"
+    (Free plan) or "full" (the request already has `slots` responding installers).
+    """
+    full_access = capabilities_for(installer.plan).receives_leads
+    progress = await leads.progress(session, installer, found)
+    out: list[Lead] = []
+    for match in found:
+        stats = progress.get(match.id)
+        if stats is not None:
+            stats = stats.model_copy(update={"slots_total": slots})
+        full = full_access and match.responded_at is None and stats and stats.responders >= slots
+        # A full enquiry is shared no further: the customer agreed to be contacted by the
+        # installers who responded in time, so latecomers see the headline only.
+        lead = Lead.from_match(match, full_access=full_access and not full)
+        if full:
+            lead = lead.model_copy(update={"access": "full"})
+        out.append(lead.model_copy(update={"progress": stats}))
+    return out
 
 
 @router.get("/me/leads")
@@ -130,20 +151,23 @@ async def list_leads(
     found, total = await leads.list_for_installer(
         session, installer, offset=page.offset, limit=page.page_size
     )
-    reveal_contact = capabilities_for(installer.plan).receives_leads
-    progress = await leads.progress(session, installer, found)
-    slots = platform_settings.lead_matching.max_installers
-    return Paginated.build(
-        [
-            Lead.from_match(lead, reveal_contact=reveal_contact).model_copy(
-                update={"progress": _with_slots(progress.get(lead.id), slots)}
-            )
-            for lead in found
-        ],
-        total=total,
-        page=page.page,
-        page_size=page.page_size,
+    items = await _lead_out(
+        session, installer, found, platform_settings.lead_matching.max_installers
     )
+    return Paginated.build(items, total=total, page=page.page, page_size=page.page_size)
+
+
+@router.get("/me/leads/{lead_id}")
+async def get_lead(
+    lead_id: uuid.UUID,
+    installer: InstallerDep,
+    session: SessionDep,
+    platform_settings: PlatformSettingsDep,
+) -> Lead:
+    """One lead: the page the "View Enquiry & Respond" email opens."""
+    lead = await leads.get_for_installer(session, installer, lead_id)
+    slots = platform_settings.lead_matching.max_installers
+    return (await _lead_out(session, installer, [lead], slots))[0]
 
 
 @router.patch("/me/leads/{lead_id}")
@@ -153,10 +177,12 @@ async def update_lead(
     installer: InstallerDep,
     session: SessionDep,
     emails: EmailQueueDep,
+    platform_settings: PlatformSettingsDep,
 ) -> Lead:
-    lead, outbox = await leads.update_status(session, installer, lead_id, data.status)
+    slots = platform_settings.lead_matching.max_installers
+    lead, outbox = await leads.update_status(session, installer, lead_id, data.status, slots)
     emails.send(outbox)
-    return Lead.from_match(lead, reveal_contact=capabilities_for(installer.plan).receives_leads)
+    return (await _lead_out(session, installer, [lead], slots))[0]
 
 
 @router.get("/me/enquiries")
@@ -195,10 +221,14 @@ async def list_conversations(
 
 @router.post("/me/conversations")
 async def start_conversation(
-    data: ConversationStart, installer: InstallerDep, session: SessionDep
+    data: ConversationStart,
+    installer: InstallerDep,
+    session: SessionDep,
+    platform_settings: PlatformSettingsDep,
 ) -> ConversationDetail:
     """Open the conversation for a lead or enquiry (returns the existing one if open)."""
-    conversation = await conversations.start(session, installer, data)
+    slots = platform_settings.lead_matching.max_installers
+    conversation = await conversations.start(session, installer, data, slots)
     return await conversations.get_for_installer(session, installer, conversation.id)
 
 
@@ -221,9 +251,15 @@ async def send_message(
     user: CurrentUserDep,
     session: SessionDep,
     emails: EmailQueueDep,
+    platform_settings: PlatformSettingsDep,
 ) -> MessageOut:
     message, outbox = await conversations.installer_message(
-        session, installer, user, conversation_id, data.body
+        session,
+        installer,
+        user,
+        conversation_id,
+        data.body,
+        platform_settings.lead_matching.max_installers,
     )
     emails.send(outbox)
     return message
@@ -241,9 +277,17 @@ async def send_quote(
     user: CurrentUserDep,
     session: SessionDep,
     emails: EmailQueueDep,
+    platform_settings: PlatformSettingsDep,
 ) -> OfferOut:
     """Send the homeowner a priced quote they can accept or decline."""
-    offer, outbox = await conversations.send_offer(session, installer, user, conversation_id, data)
+    offer, outbox = await conversations.send_offer(
+        session,
+        installer,
+        user,
+        conversation_id,
+        data,
+        platform_settings.lead_matching.max_installers,
+    )
     emails.send(outbox)
     return offer
 
