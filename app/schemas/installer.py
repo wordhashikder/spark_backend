@@ -139,7 +139,9 @@ class InstallerDetail(InstallerCard):
             **_profile_fields(installer),
             services=installer.services[: plan.public_service_limit],
             accreditations=installer.accreditations if full else [],
-            areas_covered=installer.areas_covered if full else [],
+            # Where the business works is basic listing information, so every plan shows it
+            # (the admin's edits to it must reach the public page whatever the plan).
+            areas_covered=installer.areas_covered,
             photos=installer.photos if full else [],
             # Requests to an unclaimed listing go to the team (see `services/enquiries.py`).
             accepts_direct_quotes=plan.accepts_direct_quotes and installer.is_claimed,

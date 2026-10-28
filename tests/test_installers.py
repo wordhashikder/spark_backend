@@ -101,7 +101,8 @@ async def test_public_profile_is_gated_by_plan(client: httpx.AsyncClient, db: As
     free = (await client.get("/api/v1/installers/free-profile")).json()
     assert free["services"] == ["ev_charger_installation", "domestic_electrical"]
     assert free["accreditations"] == []
-    assert free["areas_covered"] == []
+    # The areas are basic listing information: every plan shows them.
+    assert free["areas_covered"] == ["Manchester", "Salford"]
     assert free["photos"] == []
     assert free["accepts_direct_quotes"] is False
     # Private fields never appear on the public profile.

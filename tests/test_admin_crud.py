@@ -11,6 +11,7 @@ from app.models import Installer, Location, Review, User
 from tests.helpers import (
     PNG_BYTES,
     Fakes,
+    Plan,
     auth_headers,
     create_installer,
     create_review,
@@ -23,6 +24,27 @@ ADMIN = "/api/v1/admin"
 async def _owner(db: AsyncSession) -> dict[str, str]:
     user = await create_user(db, role=Role.ADMIN, staff_role=StaffRole.OWNER)
     return auth_headers(user)
+
+
+async def test_admin_area_edit_shows_on_the_public_page_for_every_plan(
+    client: httpx.AsyncClient, db: AsyncSession, fakes: Fakes
+):
+    """The team's edit of "Areas covered" reaches the public profile, even on the Free plan."""
+    headers = await _owner(db)
+    installer = await create_installer(db, "Areas Free Ltd", plan=Plan.FREE)
+    fakes.revalidator.tags.clear()
+
+    response = await client.patch(
+        f"{ADMIN}/installers/{installer.id}",
+        headers=headers,
+        json={"areas_covered": ["Rochdale", "Oldham", "Bury"]},
+    )
+    assert response.status_code == 200, response.text
+
+    public = (await client.get("/api/v1/installers/areas-free-ltd")).json()
+    assert public["areas_covered"] == ["Rochdale", "Oldham", "Bury"]
+    # The website is told to refresh this listing's cached pages at once.
+    assert "installers" in fakes.revalidator.tags
 
 
 async def test_edit_every_installer_field_logo_and_photos(
