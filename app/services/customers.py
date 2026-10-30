@@ -10,6 +10,7 @@ import logging
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from urllib.parse import quote
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,7 +52,9 @@ logger = logging.getLogger(__name__)
 # for a few minutes after its first use so the real click still signs them in.
 USED_LINK_GRACE = timedelta(minutes=10)
 _TOUCH_INTERVAL = timedelta(minutes=5)
-_MAX_ACTIVE_LINKS = 10
+_MAX_ACTIVE_LINKS = 25
+# Links in "you have a new message / quote" emails are opened days later, not minutes.
+EMAIL_LINK_LIFETIME = timedelta(days=30)
 
 _JOURNEY = (
     ("submitted", "Request sent"),
@@ -95,11 +98,16 @@ async def get_or_create(
 # ---- Magic links -----------------------------------------------------------------------
 
 
-def link_url(token: str) -> str:
-    return f"{get_settings().frontend_url}/uk/my-quotes/verify/?token={token}"
+def link_url(token: str, next_path: str | None = None) -> str:
+    """The magic link. `next_path` (a page inside `/uk/my-quotes/`) is where it lands once the
+    customer is signed in; the website checks it again and ignores anything else."""
+    url = f"{get_settings().frontend_url}/uk/my-quotes/verify/?token={token}"
+    return f"{url}&next={quote(next_path, safe='')}" if next_path else url
 
 
-async def issue_link(session: AsyncSession, customer: Customer) -> str:
+async def issue_link(
+    session: AsyncSession, customer: Customer, *, lifetime: timedelta | None = None
+) -> str:
     """A new magic link token for `customer` (no commit). Old expired links are cleared."""
     now = utcnow()
     await session.execute(
@@ -122,7 +130,8 @@ async def issue_link(session: AsyncSession, customer: Customer) -> str:
         CustomerLoginLink(
             customer_id=customer.id,
             token_hash=security.hash_token(token),
-            expires_at=now + timedelta(minutes=get_settings().magic_link_expire_minutes),
+            expires_at=now
+            + (lifetime or timedelta(minutes=get_settings().magic_link_expire_minutes)),
         )
     )
     return token

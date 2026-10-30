@@ -556,6 +556,11 @@ def conversation_link(token: str) -> str:
     return f"{get_settings().frontend_url}/messages/?token={token}"
 
 
+def customer_conversation_path(conversation_id: uuid.UUID) -> str:
+    """The conversation inside the homeowner's quote dashboard (`/uk/my-quotes/messages/`)."""
+    return f"/uk/my-quotes/messages/?c={conversation_id}"
+
+
 def conversation_message_to_homeowner(
     conversation: Conversation, installer: Installer, body: str, link: str
 ) -> Email:

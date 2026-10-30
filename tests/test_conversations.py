@@ -1,11 +1,16 @@
 """In-app quotes and messages between installers and homeowners."""
 
+import uuid
+from datetime import timedelta
+from urllib.parse import parse_qs, unquote, urlparse
+
 import httpx
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import security
 from app.core.enums import LeadStatus, Role
-from app.models import QuoteMatch
+from app.models import Customer, CustomerLoginLink, QuoteMatch
 from tests.helpers import Fakes, Plan, auth_headers, create_installer, create_user, quote_payload
 
 OFFER = {
@@ -21,6 +26,11 @@ async def _lead(client: httpx.AsyncClient, db: AsyncSession, plan: Plan = Plan.P
     await client.post("/api/v1/quotes", json=quote_payload())
     lead = await db.scalar(select(QuoteMatch).where(QuoteMatch.installer_id == installer.id))
     return installer, lead
+
+
+def _private_token(conversation_id: str) -> str:
+    """The token behind the homeowner's private conversation page (a fallback link)."""
+    return security.create_conversation_token(uuid.UUID(conversation_id))
 
 
 async def test_installer_messages_and_quotes_and_the_homeowner_replies(
@@ -49,7 +59,7 @@ async def test_installer_messages_and_quotes_and_the_homeowner_replies(
     assert message.status_code == 201
     email = fakes.emails.of("conversation_message")[-1]
     assert (email.to, email.reply_to) == ("sam@example.com", "pro-manchester@example.com")
-    token = fakes.emails.token_from("conversation_message")
+    token = _private_token(conversation["id"])
 
     offer = await client.post(f"{base}/quotes", json=OFFER, headers=headers)
     assert offer.status_code == 201, offer.text
@@ -128,7 +138,7 @@ async def test_quote_can_be_withdrawn_while_open(
         f"/api/v1/installers/me/quotes/{offer['id']}/withdraw", headers=headers
     )
     assert withdrawn.json()["status"] == "withdrawn"
-    token = fakes.emails.token_from("conversation_offer")
+    token = _private_token(conversation["id"])
     response = await client.post(
         f"/api/v1/conversation-links/quotes/{offer['id']}",
         json={"token": token, "decision": "accept"},
@@ -218,3 +228,68 @@ async def test_admin_reads_every_conversation(client: httpx.AsyncClient, db: Asy
         "/api/v1/admin/conversations", headers=auth_headers(installer.user)
     )
     assert forbidden.status_code == 403
+
+
+async def test_homeowner_emails_open_the_conversation_in_their_quote_dashboard(
+    client: httpx.AsyncClient, db: AsyncSession, fakes: Fakes
+):
+    installer, lead = await _lead(client, db)
+    headers = auth_headers(installer.user)
+    conversation = (
+        await client.post(
+            "/api/v1/installers/me/conversations", json={"lead_id": str(lead.id)}, headers=headers
+        )
+    ).json()
+    base = f"/api/v1/installers/me/conversations/{conversation['id']}"
+    await client.post(f"{base}/messages", json={"body": "Hi Sam"}, headers=headers)
+    await client.post(f"{base}/quotes", json=OFFER, headers=headers)
+
+    for template in ("conversation_message", "conversation_offer"):
+        link = urlparse(fakes.emails.of(template)[-1].context["link"])
+        query = parse_qs(link.query)
+        # The button signs the homeowner in and lands on this very conversation.
+        assert link.path == "/uk/my-quotes/verify/"
+        assert unquote(query["next"][0]) == f"/uk/my-quotes/messages/?c={conversation['id']}"
+        verified = await client.post(
+            "/api/v1/customer/auth/verify", json={"token": query["token"][0]}
+        )
+        assert verified.status_code == 200, verified.text
+        session = {"Authorization": f"Bearer {verified.json()['session_token']}"}
+        thread = await client.get(
+            f"/api/v1/customer/conversations/{conversation['id']}", headers=session
+        )
+        assert thread.status_code == 200
+        assert [offer["status"] for offer in thread.json()["offers"]] == ["sent"]
+
+    # A link from an email stays valid for days (not just minutes).
+    stored = await db.scalars(select(CustomerLoginLink))
+    long_lived = [
+        link for link in stored if link.expires_at - link.created_at >= timedelta(days=29)
+    ]
+    assert len(long_lived) == 2  # one per email; the sign-up confirmation link stays short
+
+
+async def test_homeowner_without_a_dashboard_gets_the_private_conversation_page(
+    client: httpx.AsyncClient, db: AsyncSession, fakes: Fakes
+):
+    installer, lead = await _lead(client, db)
+    headers = auth_headers(installer.user)
+    conversation = (
+        await client.post(
+            "/api/v1/installers/me/conversations", json={"lead_id": str(lead.id)}, headers=headers
+        )
+    ).json()
+    # The customer record was erased (GDPR): the email must still work.
+    await db.execute(delete(Customer))
+    await db.commit()
+    await client.post(
+        f"/api/v1/installers/me/conversations/{conversation['id']}/messages",
+        json={"body": "Hi Sam"},
+        headers=headers,
+    )
+    link = urlparse(fakes.emails.of("conversation_message")[-1].context["link"])
+    assert link.path == "/messages/"
+    view = await client.post(
+        "/api/v1/conversation-links/view", json={"token": parse_qs(link.query)["token"][0]}
+    )
+    assert view.status_code == 200

@@ -42,6 +42,7 @@ from app.schemas.conversation import (
     OfferCreate,
     OfferOut,
 )
+from app.services import customers
 from app.services import email as emails
 from app.services.email import Email, quote_summary
 
@@ -236,7 +237,7 @@ async def installer_message(
     conversation.installer_read_at = message.created_at
     _mark_contacted(conversation)
     await session.commit()
-    link = _homeowner_link(conversation)
+    link = await _homeowner_link(session, conversation)
     return MessageOut.model_validate(message), [
         emails.conversation_message_to_homeowner(conversation, installer, body, link)
     ]
@@ -273,7 +274,7 @@ async def send_offer(
     conversation.installer_read_at = offer.created_at
     _mark_contacted(conversation)
     await session.commit()
-    link = _homeowner_link(conversation)
+    link = await _homeowner_link(session, conversation)
     return OfferOut.model_validate(offer), [
         emails.conversation_offer_to_homeowner(conversation, installer, offer, data.message, link)
     ]
@@ -502,7 +503,7 @@ async def team_message(
             body,
             to=conversation.homeowner_email,
             audience="homeowner",
-            link=_homeowner_link(conversation),
+            link=await _homeowner_link(session, conversation),
         ),
         *_notify_installer(
             conversation,
@@ -577,8 +578,22 @@ def _mark_contacted(conversation: Conversation) -> None:
         lead.status = LeadStatus.CONTACTED
 
 
-def _homeowner_link(conversation: Conversation) -> str:
-    return emails.conversation_link(security.create_conversation_token(conversation.id))
+async def _homeowner_link(session: AsyncSession, conversation: Conversation) -> str:
+    """Where the button in the homeowner's email goes.
+
+    A homeowner with a quote dashboard is signed in and taken to this very conversation in
+    "My Quotes > Messages" (their quote, with Accept and Decline, is in the thread). One
+    with no dashboard (for example a direct enquiry from an installer's profile) gets the
+    private conversation page instead, so the button always works.
+    """
+    customer = await session.scalar(
+        select(Customer).where(Customer.email == conversation.homeowner_email.lower())
+    )
+    if customer is None:
+        return emails.conversation_link(security.create_conversation_token(conversation.id))
+    token = await customers.issue_link(session, customer, lifetime=customers.EMAIL_LINK_LIFETIME)
+    await session.commit()
+    return customers.link_url(token, next_path=emails.customer_conversation_path(conversation.id))
 
 
 def _notify_installer(conversation: Conversation, build: Callable[[str], Email]) -> list[Email]:
