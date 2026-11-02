@@ -505,10 +505,17 @@ async def list_quotes(
     platform_settings: PlatformSettingsDep,
     status: QuoteStatus | None = None,
     stage: lead_stats.Stage | None = None,
+    waiting: bool = False,
     q: SearchQuery = None,
 ) -> Paginated[AdminQuote]:
     found, total = await admin.list_quotes(
-        session, status=status, stage=stage, search=q, offset=page.offset, limit=page.page_size
+        session,
+        status=status,
+        stage=stage,
+        waiting=waiting,
+        search=q,
+        offset=page.offset,
+        limit=page.page_size,
     )
     return Paginated.build(
         [

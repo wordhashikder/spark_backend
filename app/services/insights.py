@@ -231,15 +231,7 @@ async def nav_counts(session: AsyncSession, access: frozenset[str]) -> NavCounts
     counts = NavCounts()
     if "leads" in access:
         # Requests waiting for the team: held for manual matching, or matched nobody.
-        counts.leads = await _count(
-            session,
-            QuoteRequest,
-            or_(
-                QuoteRequest.status == QuoteStatus.NEW,
-                QuoteRequest.status == QuoteStatus.UNMATCHED,
-            ),
-            QuoteRequest.created_at >= utcnow() - timedelta(days=30),
-        )
+        counts.leads = await _count(session, QuoteRequest, lead_stats.waiting_for_team())
     if "installers" in access:
         counts.installers = await _count(
             session, Installer, Installer.status == InstallerStatus.PENDING

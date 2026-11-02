@@ -216,6 +216,48 @@ async def test_settings_drive_matching_and_team_alerts(
     assert (await client.get(f"{ADMIN}/nav", headers=owner)).json()["leads"] == 1
 
 
+async def test_waiting_count_and_filter_agree_with_the_bell(
+    client: httpx.AsyncClient, db: AsyncSession
+):
+    """The bell, the "Waiting for you" chip and its list count the same requests, and the
+    stage chips count every request (not just one)."""
+    _, owner = await _staff(db)
+
+    def _matching(automatic: bool) -> dict:
+        return {
+            "lead_matching": {"automatic": automatic, "max_installers": 5},
+            "notifications": {"email_alerts": True, "sms_alerts": False},
+            "organisation": {"platform_name": "PickASparky", "support_email": "a@example.com"},
+        }
+
+    await create_installer(db, "Manchester Installer")
+    await client.put(f"{ADMIN}/settings", json=_matching(False), headers=owner)
+    for _ in range(2):  # held for the team
+        assert (await client.post("/api/v1/quotes", json=quote_payload())).status_code == 201
+    await client.put(f"{ADMIN}/settings", json=_matching(True), headers=owner)
+    for _ in range(2):  # matched to the installer
+        assert (await client.post("/api/v1/quotes", json=quote_payload())).status_code == 201
+    matched = (
+        await db.scalars(select(QuoteRequest).where(QuoteRequest.status == QuoteStatus.MATCHED))
+    ).all()
+    assert len(matched) == 2
+    matched[0].status = QuoteStatus.UNMATCHED  # one that no installer covered
+    await db.commit()
+
+    stages = (await client.get(f"{ADMIN}/quotes/stages", headers=owner)).json()
+    assert stages["all"] == 4
+    assert stages["open"] + stages["awaiting"] + stages["closed"] == 4
+    assert stages["held"] == 3
+
+    assert (await client.get(f"{ADMIN}/nav", headers=owner)).json()["leads"] == 3
+    waiting = (
+        await client.get(f"{ADMIN}/quotes", params={"waiting": "true"}, headers=owner)
+    ).json()
+    assert waiting["total"] == 3
+    everything = (await client.get(f"{ADMIN}/quotes", headers=owner)).json()
+    assert everything["total"] == 4
+
+
 async def test_team_alerts_can_be_switched_off(
     client: httpx.AsyncClient, db: AsyncSession, fakes: Fakes
 ):

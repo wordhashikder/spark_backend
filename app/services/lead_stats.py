@@ -8,12 +8,14 @@ A request moves through three stages the back office shows as badges:
 - **closed**: the homeowner accepted a quote, or an installer marked the job as won.
 """
 
+from datetime import timedelta
 from typing import Literal
 
 from sqlalchemy import ColumnElement, and_, case, exists, func, not_, select
 
-from app.core.enums import LeadStatus, OfferStatus
+from app.core.enums import LeadStatus, OfferStatus, QuoteStatus
 from app.models import Conversation, Offer, QuoteMatch, QuoteRequest
+from app.models.base import utcnow
 
 Stage = Literal["open", "awaiting", "closed"]
 
@@ -55,6 +57,21 @@ def stage() -> ColumnElement[str]:
 
 def stage_filter(value: Stage) -> ColumnElement[bool]:
     return {"open": is_open, "awaiting": is_awaiting, "closed": is_closed}[value]()
+
+
+WAITING_WINDOW = timedelta(days=30)
+
+
+def waiting_for_team() -> ColumnElement[bool]:
+    """Requests that need the team: held for manual matching, or matched no installer.
+
+    The one rule behind the bell, the Leads & Quotes badge and the "Waiting for you" filter
+    (its count and its list), so they always agree. Only the last 30 days are counted.
+    """
+    return and_(
+        QuoteRequest.status.in_((QuoteStatus.NEW, QuoteStatus.UNMATCHED)),
+        QuoteRequest.created_at >= utcnow() - WAITING_WINDOW,
+    )
 
 
 def quotes_sent() -> ColumnElement[int]:

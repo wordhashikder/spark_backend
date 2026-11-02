@@ -377,6 +377,7 @@ async def list_quotes(
     limit: int,
     status: QuoteStatus | None = None,
     stage: lead_stats.Stage | None = None,
+    waiting: bool = False,
     search: str | None = None,
 ) -> tuple[list[tuple[QuoteRequest, int, int, str]], int]:
     """Quote requests, newest first, each with (installers matched, quotes sent, stage)."""
@@ -385,6 +386,8 @@ async def list_quotes(
         filters.append(QuoteRequest.status == status)
     if stage:
         filters.append(lead_stats.stage_filter(stage))
+    if waiting:
+        filters.append(lead_stats.waiting_for_team())
     if search and search.strip():
         pattern = f"%{_escape_like(search.strip())}%"
         filters.append(
@@ -416,7 +419,7 @@ async def list_quotes(
 
 async def stage_counts(session: AsyncSession) -> dict[str, int]:
     """How many requests are at each stage (the Leads & Quotes filter chips)."""
-    stages = select(lead_stats.stage().label("stage")).subquery()
+    stages = select(lead_stats.stage().label("stage")).select_from(QuoteRequest).subquery()
     rows = await session.execute(select(stages.c.stage, func.count()).group_by(stages.c.stage))
     counts = {"open": 0, "awaiting": 0, "closed": 0}
     for stage, count in rows:
@@ -424,9 +427,7 @@ async def stage_counts(session: AsyncSession) -> dict[str, int]:
     counts["all"] = sum(counts.values())
     counts["held"] = (
         await session.scalar(
-            select(func.count())
-            .select_from(QuoteRequest)
-            .where(QuoteRequest.status == QuoteStatus.NEW)
+            select(func.count()).select_from(QuoteRequest).where(lead_stats.waiting_for_team())
         )
         or 0
     )
