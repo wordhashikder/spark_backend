@@ -1,7 +1,7 @@
 Hi {{ business_name }},
 
 {% if accepted %}
-Good news: {{ name }} has accepted your quote {{ reference }} for {{ amount }}. Get in touch to arrange the installation: {{ email }}
+Good news: {{ name }} has accepted your quote {{ reference }} for {{ amount }}. Open the conversation below to arrange the installation with {{ name }}.
 {% else %}
 {{ name }} has declined your quote {{ reference }} for {{ amount }}.
 {% endif %}

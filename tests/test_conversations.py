@@ -44,7 +44,8 @@ async def test_installer_messages_and_quotes_and_the_homeowner_replies(
     )
     assert started.status_code == 200, started.text
     conversation = started.json()
-    assert conversation["homeowner_email"] == "sam@example.com"
+    assert conversation["homeowner_email"] is None  # never shown to installers
+    assert conversation["job"]["phone"] is None  # nor their phone number
     assert conversation["job"]["kind"] == "lead"
     # Opening it again returns the same conversation.
     again = await client.post(
@@ -115,6 +116,55 @@ async def test_installer_messages_and_quotes_and_the_homeowner_replies(
 
     quotes = await client.get("/api/v1/installers/me/quotes", headers=headers)
     assert quotes.json()["items"][0]["homeowner_name"] == "Sam"
+
+
+async def test_installers_never_receive_the_homeowners_email_or_phone(
+    client: httpx.AsyncClient, db: AsyncSession, fakes: Fakes
+):
+    """Not in any installer API response, and not in any email sent to an installer."""
+    secrets = ("sam@example.com", "07700 900123")
+    installer, lead = await _lead(client, db)
+    headers = auth_headers(installer.user)
+    seen = [
+        await client.get("/api/v1/installers/me/leads", headers=headers),
+        await client.get(f"/api/v1/installers/me/leads/{lead.id}", headers=headers),
+    ]
+    conversation = (
+        await client.post(
+            "/api/v1/installers/me/conversations", json={"lead_id": str(lead.id)}, headers=headers
+        )
+    ).json()
+    base = f"/api/v1/installers/me/conversations/{conversation['id']}"
+    await client.post(f"{base}/messages", json={"body": "Hi Sam"}, headers=headers)
+    offer = (await client.post(f"{base}/quotes", json=OFFER, headers=headers)).json()
+    token = _private_token(conversation["id"])
+    await client.post(
+        "/api/v1/conversation-links/messages", json={"token": token, "body": "Thursday works."}
+    )
+    await client.post(
+        f"/api/v1/conversation-links/quotes/{offer['id']}",
+        json={"token": token, "decision": "accept", "note": "Let's go ahead."},
+    )
+    seen += [
+        await client.get("/api/v1/installers/me/conversations", headers=headers),
+        await client.get(base, headers=headers),
+        await client.get("/api/v1/installers/me/quotes", headers=headers),
+    ]
+    for response in seen:
+        assert response.status_code == 200
+        for secret in secrets:
+            assert secret not in response.text
+
+    to_installer = [e for e in fakes.emails.sent if e.to == "pro-manchester@example.com"]
+    assert {e.template for e in to_installer} >= {
+        "new_lead",
+        "conversation_reply",
+        "offer_response",
+    }
+    for email in to_installer:
+        assert email.reply_to is None
+        for secret in secrets:
+            assert secret not in str(fakes.emails._renderer.render(email))
 
 
 async def test_quote_can_be_withdrawn_while_open(

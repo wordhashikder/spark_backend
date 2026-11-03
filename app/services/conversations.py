@@ -219,7 +219,7 @@ async def get_for_installer(
     conversation = await _owned(session, installer, conversation_id)
     conversation.installer_read_at = utcnow()
     await session.commit()
-    return _detail(conversation, include_email=True)
+    return _detail(conversation, include_phone=False, include_email=False)
 
 
 async def installer_message(
@@ -337,7 +337,7 @@ async def get_for_homeowner(session: AsyncSession, token: str) -> ConversationDe
     conversation = await _from_token(session, token)
     conversation.homeowner_read_at = utcnow()
     await session.commit()
-    return _detail(conversation, include_email=False)
+    return _detail(conversation, include_phone=False, include_email=False)
 
 
 async def homeowner_message(
@@ -424,7 +424,7 @@ async def get_for_customer(
     conversation = await _customer_conversation(session, customer, conversation_id)
     conversation.homeowner_read_at = utcnow()
     await session.commit()
-    return _detail(conversation, include_email=False)
+    return _detail(conversation, include_phone=False, include_email=False)
 
 
 async def customer_message(
@@ -486,7 +486,7 @@ async def list_all(
 
 
 async def get_any(session: AsyncSession, conversation_id: uuid.UUID) -> ConversationDetail:
-    return _detail(await _load(session, conversation_id), include_email=True)
+    return _detail(await _load(session, conversation_id), include_phone=True, include_email=True)
 
 
 async def team_message(
@@ -625,9 +625,16 @@ def _job(conversation: Conversation) -> ConversationJob:
     )
 
 
-def _detail(conversation: Conversation, *, include_email: bool) -> ConversationDetail:
+def _detail(
+    conversation: Conversation, *, include_phone: bool, include_email: bool
+) -> ConversationDetail:
+    """The thread as one reader sees it.
+
+    The homeowner's email address and phone number go to the team only. Installers answer
+    through PickASparky messages, never by email or phone.
+    """
     job = _job(conversation)
-    if not include_email:
+    if not include_phone:
         job = job.model_copy(update={"phone": None})
     return ConversationDetail(
         id=conversation.id,

@@ -3,7 +3,7 @@
 {% block content %}
 <p style="margin:0 0 16px;">Hi {{ business_name }},</p>
 {% if accepted %}
-<p style="margin:0 0 16px;">Good news: <strong>{{ name }}</strong> has accepted your quote {{ reference }} for {{ amount }}. Get in touch to arrange the installation: <a href="mailto:{{ email }}" style="color:#0a9b53;">{{ email }}</a>.</p>
+<p style="margin:0 0 16px;">Good news: <strong>{{ name }}</strong> has accepted your quote {{ reference }} for {{ amount }}. Open the conversation to arrange the installation with {{ name }}.</p>
 {% else %}
 <p style="margin:0 0 16px;">{{ name }} has declined your quote {{ reference }} for {{ amount }}.</p>
 {% endif %}

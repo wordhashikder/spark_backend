@@ -45,11 +45,9 @@ async def test_leads_show_contact_details_only_on_a_lead_receiving_plan(
     assert leads["total"] == 1
     quote = leads["items"][0]["quote"]
     assert leads["items"][0]["status"] == "sent"
-    assert (quote["postcode"], quote["email"], quote["phone"]) == (
-        "M1 1AA",
-        "sam@example.com",
-        "07700 900123",
-    )
+    assert quote["postcode"] == "M1 1AA"
+    assert "email" not in quote
+    assert "phone" not in quote
     assert quote["charger_followup"] == "installer_recommend"
 
     # After a downgrade the lead stays visible but the customer's details are withheld.
@@ -58,7 +56,9 @@ async def test_leads_show_contact_details_only_on_a_lead_receiving_plan(
     await db.commit()
     downgraded = (await client.get("/api/v1/installers/me/leads", headers=headers)).json()
     quote = downgraded["items"][0]["quote"]
-    assert (quote["postcode"], quote["email"], quote["phone"]) == ("M1", None, None)
+    assert quote["postcode"] == "M1"
+    assert "email" not in quote
+    assert "phone" not in quote
     assert quote["first_name"] == "Sam"
 
 

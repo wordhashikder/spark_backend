@@ -48,7 +48,13 @@ async def test_enquiry_goes_to_the_installer_and_the_customer_gets_a_copy(
         "installer_enquiry",
         "pro-manchester@example.com",
     )
-    assert notification.reply_to == "sam@example.com"
+    # The installer never gets the customer's email address, not even as Reply-To.
+    assert notification.reply_to is None
+    assert "email" not in notification.context["customer"]
+    notice = str(fakes.emails._renderer.render(notification))
+    assert "sam@example.com" not in notice
+    assert "07700 900123" not in notice  # nor their phone number
+    assert "phone" not in notification.context["customer"]
     assert notification.context["message"] == enquiry.message
     assert (acknowledgement.template, acknowledgement.to) == ("enquiry_ack", "sam@example.com")
     assert acknowledgement.context["profile_url"] == (
@@ -66,7 +72,7 @@ async def test_phone_number_is_optional_but_must_be_valid_when_given(
     assert (await client.post(url, json=enquiry_payload(phone=""))).status_code == 202
     assert await db.scalar(select(InstallerEnquiry.phone)) is None
     rendered = fakes.emails._renderer.render(fakes.emails.of("installer_enquiry")[0])
-    assert "No phone number given" in rendered.get_body(preferencelist=("plain",)).get_content()
+    assert "No phone number" not in rendered.get_body(preferencelist=("plain",)).get_content()
 
     invalid = await client.post(
         url, json=enquiry_payload(phone="call me", message="short", name="S", email="sam@")
@@ -148,8 +154,6 @@ async def test_installer_and_admin_can_list_enquiries(client: httpx.AsyncClient,
     assert set(own.json()["items"][0]) == {
         "id",
         "name",
-        "email",
-        "phone",
         "message",
         "created_at",
     }

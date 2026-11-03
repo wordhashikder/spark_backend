@@ -21,19 +21,22 @@ class EnquiryCreate(BaseModel):
 
 
 class Enquiry(BaseModel):
-    """An enquiry as its installer sees it."""
+    """An enquiry as its installer sees it: neither the customer's email address nor their
+    phone number is included, the installer answers through PickASparky messages."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     name: str
-    email: str
-    phone: str | None
     message: str
     created_at: datetime
 
 
 class AdminEnquiry(Enquiry):
+    """An enquiry as the team sees it, with the customer's email address and phone."""
+
+    email: str
+    phone: str | None
     installer_id: uuid.UUID
     installer_slug: str
     installer_name: str

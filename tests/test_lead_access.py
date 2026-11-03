@@ -57,9 +57,9 @@ async def test_free_installer_sees_only_the_headline_and_is_asked_to_upgrade(
     )
     assert quote["installation_type"]
     # Nothing beyond the headline: no contact details, answers or notes, and a short postcode.
+    assert "email" not in quote
+    assert "phone" not in quote
     for hidden in (
-        "email",
-        "phone",
         "notes",
         "charger_location",
         "existing_charger",
@@ -91,7 +91,8 @@ async def test_paid_installer_opens_the_whole_enquiry(client: httpx.AsyncClient,
 
     single = (await client.get(f"{BASE}/leads/{lead.id}", headers=auth_headers(pro.user))).json()
     assert single["access"] == "open"
-    assert single["quote"]["email"] == "sam@example.com"
+    assert "email" not in single["quote"]  # installers message the customer on PickASparky
+    assert "phone" not in single["quote"]
     assert single["quote"]["notes"] == "Side gate is narrow."
     assert single["quote"]["charger_location"]
     assert single["progress"]["slots_total"] == 5
@@ -146,7 +147,7 @@ async def test_only_the_first_five_installers_to_respond_can_quote(
     ).json()
     assert seen["access"] == "full"
     # Latecomers get the headline only, and cannot work the lead either.
-    assert seen["quote"]["email"] is None
+    assert "email" not in seen["quote"]
     assert seen["quote"]["notes"] is None
     worked = await client.patch(
         f"{BASE}/leads/{sixth_lead.id}",

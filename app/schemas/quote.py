@@ -71,8 +71,9 @@ class LeadQuote(BaseModel):
     """An enquiry as an installer sees it.
 
     Installers without full access (the Free plan) get the headline only: first name, town,
-    service and timeframe. The answers, notes and contact details are `None` until they
-    upgrade.
+    service and timeframe. The answers and notes are `None` until they upgrade. The
+    customer's email address and phone number are never part of this: installers reach the
+    customer through PickASparky messages.
     """
 
     reference: str
@@ -88,8 +89,6 @@ class LeadQuote(BaseModel):
     timing: Timing
     notes: str | None
     first_name: str
-    email: str | None
-    phone: str | None
 
 
 class LeadProgress(BaseModel):
@@ -145,8 +144,6 @@ class Lead(BaseModel):
                 timing=quote.timing,
                 notes=quote.notes if full_access else None,
                 first_name=quote.first_name,
-                email=quote.email if full_access else None,
-                phone=quote.phone if full_access else None,
             ),
         )
 

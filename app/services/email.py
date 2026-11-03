@@ -381,18 +381,21 @@ def quote_unmatched(quote: QuoteRequest, *, held: bool = False) -> Email:
 
 
 def installer_enquiry(enquiry: InstallerEnquiry, installer: Installer, to: str) -> Email:
-    """A customer's direct request, sent to the installer; replies go straight to them."""
+    """A customer's direct request, sent to the installer.
+
+    The customer's email address and phone number are left out (and no Reply-To): the
+    installer answers from their dashboard, where the customer is emailed on their behalf.
+    """
     return Email(
         to=to,
         subject=f"New quote request from {enquiry.name}",
         template="installer_enquiry",
         context={
             "business_name": installer.business_name,
-            "customer": {"name": enquiry.name, "email": enquiry.email, "phone": enquiry.phone},
+            "customer": {"name": enquiry.name},
             "message": enquiry.message,
-            "account_url": _account_url(),
+            "link": _dashboard_url("/leads"),
         },
-        reply_to=enquiry.email,
     )
 
 
@@ -615,7 +618,6 @@ def conversation_reply_to_installer(conversation: Conversation, body: str, to: s
             "body": body,
             "link": installer_conversation_url(conversation.id),
         },
-        reply_to=conversation.homeowner_email,
     )
 
 
@@ -635,10 +637,8 @@ def offer_response_to_installer(conversation: Conversation, offer: Offer, to: st
             "reference": offer.reference,
             "amount": f"£{offer.amount:,.2f}",
             "note": offer.response_note,
-            "email": conversation.homeowner_email,
             "link": installer_conversation_url(conversation.id),
         },
-        reply_to=conversation.homeowner_email,
     )
 
 

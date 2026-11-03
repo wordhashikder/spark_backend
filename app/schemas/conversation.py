@@ -96,7 +96,8 @@ class ConversationSummary(BaseModel):
     installer_name: str
     installer_slug: str
     homeowner_name: str
-    homeowner_email: str
+    # Never sent to installers (they message the homeowner through PickASparky).
+    homeowner_email: str | None
     kind: Literal["lead", "enquiry"]
     lead_id: uuid.UUID | None
     enquiry_id: uuid.UUID | None
@@ -139,7 +140,7 @@ class ConversationSummary(BaseModel):
             installer_name=conversation.installer.business_name,
             installer_slug=conversation.installer.slug,
             homeowner_name=conversation.homeowner_name,
-            homeowner_email=conversation.homeowner_email,
+            homeowner_email=None if reader == "installer" else conversation.homeowner_email,
             kind="lead" if conversation.quote_match_id else "enquiry",
             lead_id=conversation.quote_match_id,
             enquiry_id=conversation.enquiry_id,
