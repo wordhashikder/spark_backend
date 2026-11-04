@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
+    CacheRefreshDep,
     ClientIpDep,
     CurrentUserDep,
     EmailQueueDep,
@@ -49,6 +50,10 @@ from app.services import claims, conversations, dashboard, enquiries, installers
 
 router = APIRouter(prefix="/installers", tags=["installers"])
 
+# Website cache tags to refresh when a business changes what the public sees (the same ones
+# the team's edits refresh, see `_INSTALLER_PAGES` in the admin endpoints).
+_PUBLIC_PAGES = ("installers", "locations")
+
 _DEFAULT_SIMILAR = 4
 _ENQUIRY_SENT = "Your request has been sent. We've emailed you a copy."
 
@@ -78,9 +83,14 @@ async def get_own_profile(installer: InstallerDep) -> InstallerProfile:
 
 @router.patch("/me")
 async def update_own_profile(
-    data: InstallerUpdate, installer: InstallerDep, session: SessionDep, geocoder: GeocoderDep
+    data: InstallerUpdate,
+    installer: InstallerDep,
+    session: SessionDep,
+    geocoder: GeocoderDep,
+    refresh: CacheRefreshDep,
 ) -> InstallerProfile:
     updated = await installers.update_profile(session, installer, data, geocoder)
+    refresh(*_PUBLIC_PAGES)
     return InstallerProfile.from_installer(updated)
 
 
@@ -89,9 +99,11 @@ async def upload_logo(
     installer: InstallerDep,
     session: SessionDep,
     storage: StorageDep,
+    refresh: CacheRefreshDep,
     file: Annotated[UploadFile, File()],
 ) -> InstallerProfile:
     updated = await installers.set_logo(session, installer, await read_upload(file), storage)
+    refresh(*_PUBLIC_PAGES)
     return InstallerProfile.from_installer(updated)
 
 
@@ -100,20 +112,27 @@ async def upload_photo(
     installer: InstallerDep,
     session: SessionDep,
     storage: StorageDep,
+    refresh: CacheRefreshDep,
     file: Annotated[UploadFile, File()],
     alt: Annotated[str | None, Form(max_length=160)] = None,
 ) -> Photo:
     photo = await installers.add_photo(
         session, installer, await read_upload(file), (alt or "").strip() or None, storage
     )
+    refresh(*_PUBLIC_PAGES)
     return Photo.model_validate(photo)
 
 
 @router.delete("/me/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_photo(
-    photo_id: uuid.UUID, installer: InstallerDep, session: SessionDep, storage: StorageDep
+    photo_id: uuid.UUID,
+    installer: InstallerDep,
+    session: SessionDep,
+    storage: StorageDep,
+    refresh: CacheRefreshDep,
 ) -> None:
     await installers.delete_photo(session, installer, photo_id, storage)
+    refresh(*_PUBLIC_PAGES)
 
 
 async def _lead_out(

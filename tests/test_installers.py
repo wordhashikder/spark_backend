@@ -221,7 +221,7 @@ async def test_postcode_lookup(client: httpx.AsyncClient, fakes: Fakes, db: Asyn
 
 
 async def test_installer_reads_and_updates_their_own_profile(
-    client: httpx.AsyncClient, db: AsyncSession
+    client: httpx.AsyncClient, db: AsyncSession, fakes: Fakes
 ):
     installer = await create_installer(db, "My Business", plan=Plan.FREE)
     headers = auth_headers(installer.user)
@@ -237,6 +237,7 @@ async def test_installer_reads_and_updates_their_own_profile(
         "M1 1AA",
     )
 
+    fakes.revalidator.tags.clear()
     update = await client.patch(
         "/api/v1/installers/me",
         headers=headers,
@@ -252,6 +253,8 @@ async def test_installer_reads_and_updates_their_own_profile(
         },
     )
     assert update.status_code == 200, update.text
+    # The website is told to refresh the public pages at once, as it is for the team's edits.
+    assert {"installers", "locations"} <= set(fakes.revalidator.tags)
     body = update.json()
     assert body["tagline"] == "Fast, tidy installs"
     assert (body["base_postcode"], body["town"], body["location_slug"]) == (
@@ -312,9 +315,11 @@ async def test_media_uploads_respect_type_and_plan_limits(
     headers = auth_headers(paid.user)
     image = {"file": ("logo.png", PNG_BYTES, "image/png")}
 
+    fakes.revalidator.tags.clear()
     logo = await client.post("/api/v1/installers/me/logo", headers=headers, files=image)
     assert logo.status_code == 200, logo.text
     assert logo.json()["logo_url"] == "https://images.test/logos/image-1.png"
+    assert "installers" in fakes.revalidator.tags  # the public page shows the new logo at once
 
     replaced = await client.post("/api/v1/installers/me/logo", headers=headers, files=image)
     assert replaced.status_code == 200
@@ -322,22 +327,27 @@ async def test_media_uploads_respect_type_and_plan_limits(
 
     # The declared content type is ignored: the bytes decide.
     disguised = {"file": ("photo.png", b"<script>alert(1)</script>", "image/png")}
+    fakes.revalidator.tags.clear()
     rejected = await client.post("/api/v1/installers/me/photos", headers=headers, files=disguised)
     assert (rejected.status_code, rejected.json()["error"]["code"]) == (
         415,
         "unsupported_media_type",
     )
+    assert fakes.revalidator.tags == []  # nothing changed, nothing to refresh
 
     photo = await client.post(
         "/api/v1/installers/me/photos", headers=headers, files=image, data={"alt": "Wall charger"}
     )
     assert photo.status_code == 201, photo.text
     photo_id = photo.json()["id"]
+    assert "installers" in fakes.revalidator.tags
     public = (await client.get("/api/v1/installers/paid-media")).json()
     assert [(item["id"], item["alt"]) for item in public["photos"]] == [(photo_id, "Wall charger")]
 
+    fakes.revalidator.tags.clear()
     deleted = await client.delete(f"/api/v1/installers/me/photos/{photo_id}", headers=headers)
     assert deleted.status_code == 204
+    assert "installers" in fakes.revalidator.tags
     assert fakes.storage.deleted[-1].startswith("gallery/")
 
     free = await create_installer(db, "Free Media", plan=Plan.FREE)
