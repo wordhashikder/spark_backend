@@ -1,7 +1,7 @@
 """Record when an installer first responded to a lead.
 
 A request is now sent to every eligible installer, but only the first few to respond
-(Settings › Lead matching) may quote. `responded_at` is that first response, so the limit
+(Settings > Lead matching) may quote. `responded_at` is that first response, so the limit
 can be checked and enforced cheaply and without races.
 
 Revision ID: 0010

@@ -201,9 +201,7 @@ def upgrade() -> None:
 
     op.add_column(
         "installers",
-        sa.Column(
-            "cancel_at_period_end", sa.Boolean(), server_default=sa.false(), nullable=False
-        ),
+        sa.Column("cancel_at_period_end", sa.Boolean(), server_default=sa.false(), nullable=False),
     )
     op.add_column("installers", sa.Column("pending_plan", sa.String(40), nullable=True))
     op.add_column("installers", sa.Column("stripe_schedule_id", sa.String(255), nullable=True))
@@ -288,8 +286,9 @@ def downgrade() -> None:
     op.execute(f"CREATE TYPE plan AS ENUM ({values})")
     # Plans created in the Dashboard have no equivalent in the old enum: they become Free.
     for column in ("plan", "requested_plan"):
+        # Safe: `column` and `values` are fixed constants in this file, never user input.
         op.execute(
-            f"UPDATE installers SET {column} = 'free' "
+            f"UPDATE installers SET {column} = 'free' "  # noqa: S608
             f"WHERE {column} IS NOT NULL AND {column} NOT IN ({values})"
         )
     op.execute("ALTER TABLE installers ALTER COLUMN plan DROP DEFAULT")
