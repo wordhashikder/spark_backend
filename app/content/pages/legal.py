@@ -98,7 +98,9 @@ PRIVACY = _policy(
             "- Contact details such as your name, email address and phone number.\n"
             "- Your postcode and property information relevant to an installation.\n"
             "- Details of the quote or service you request.\n"
-            "- Technical data such as browser type, device and IP address.",
+            "- Technical data such as browser type, device and IP address.\n"
+            "- If you accept analytics cookies, usage data about how you use the "
+            "website. See our [Cookie Policy](/cookie-policy/).",
         ),
         _s(
             "How We Use It",
@@ -190,16 +192,17 @@ COOKIES = _policy(
     "Cookie Policy",
     "/cookie-policy/",
     "Cookie Policy",
-    "Which cookies the PickASparky website uses: strictly necessary cookies only, no analytics "
-    "or advertising cookies, and how to control cookies in your browser.",
+    "Which cookies the PickASparky website uses: strictly necessary cookies, analytics cookies "
+    "only if you accept them, no advertising cookies, and how to change your choice at any time.",
     "Cookie Policy",
-    "Oct 2026",
+    "Nov 2026",
     [
         _s(
             "Introduction",
             "This Cookie Policy explains what cookies are, which ones the PickASparky website "
-            "uses and how you can control them. We keep cookies to a minimum: the site sets only "
-            "the cookies it needs in order to work.",
+            "uses and how you can control them. We keep cookies to a minimum: the site sets the "
+            "cookies it needs in order to work and, only if you accept them, analytics cookies "
+            "that help us improve the site.",
         ),
         _s(
             "What Are Cookies",
@@ -209,14 +212,14 @@ COOKIES = _policy(
         ),
         _s(
             "Cookies We Use",
-            "We use strictly necessary cookies only. These are the session cookies set when an "
-            "installer signs in to their PickASparky account. They:\n\n"
-            "- Keep the installer signed in as they move between pages of their account.\n"
-            "- Help keep the account secure.\n\n"
-            "These cookies are used only for installer accounts. Homeowners can browse the site "
-            "and request quotes without signing in. Because strictly necessary cookies are "
-            "essential to a service you have asked for, they are set without asking for "
-            "consent.",
+            "Strictly necessary cookies are set without asking for consent, because the site "
+            "cannot work without them. They:\n\n"
+            "- Keep an installer signed in as they move between pages of their account.\n"
+            "- Keep a homeowner signed in when they open their quotes from the link we email "
+            "them, and remember that they have requested a quote.\n"
+            "- Help keep accounts secure.\n"
+            "- Remember your cookie choice (the cc\\_cookie cookie, kept for six months).\n\n"
+            "Homeowners can browse the site and request quotes without signing in.",
         ),
         _s(
             "Browser Storage",
@@ -226,9 +229,22 @@ COOKIES = _policy(
             "is not used to track you and is removed when you close the tab.",
         ),
         _s(
-            "Analytics & Advertising",
-            "We do not use analytics cookies or advertising cookies, and we do not use cookies "
-            "to track you across other websites.",
+            "Analytics Cookies",
+            "With your permission, we use Google Analytics to understand which pages are "
+            "visited and how people find us, so that we can improve the service. It sets the "
+            "\\_ga and \\_ga\\_\\* cookies, which last up to two years.\n\n"
+            "These cookies are set only after you choose **Accept All Cookies** on our cookie "
+            "banner. If you do not accept, no analytics cookies are set and no data is sent to "
+            "Google Analytics. We do not send the contents of your quote request to Google "
+            "Analytics, and we do not measure signed-in or one-time-link pages.\n\n"
+            "You can change your mind at any time by choosing **Cookie settings** in the footer "
+            "of any page. If you withdraw consent, we stop measuring your visits and remove the "
+            "analytics cookies.",
+        ),
+        _s(
+            "Advertising",
+            "We do not use advertising cookies, and we do not use cookies to track you across "
+            "other websites.",
         ),
         _s(
             "Third-Party Cookies",
@@ -250,8 +266,8 @@ COOKIES = _policy(
         ),
         _s(
             "Changes to This Policy",
-            "If we add analytics or any other non-essential cookies in future, we will update "
-            "this policy and ask for your consent where the law requires it. The date at the top "
+            "If we add any other non-essential cookies in future, we will update this policy "
+            "and ask for your consent where the law requires it. The date at the top "
             "of this page shows when the policy was last updated.",
         ),
         _s(
