@@ -1,5 +1,6 @@
 """In-app messages and priced quotes between installers and homeowners."""
 
+import re
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -65,6 +66,11 @@ class MessageOut(BaseModel):
     created_at: datetime
 
 
+# The line saved when a homeowner answers a quote, after the homeowner's name.
+_OFFER_ANSWER = re.compile(
+    r" (?P<verb>accepted|declined) quote (?P<reference>[^\s.]+)\.(?P<rest>.*)", re.DOTALL
+)
+
 Reader = Literal["installer", "homeowner", "admin"]
 
 
@@ -79,9 +85,16 @@ def message_text_for(
     conversation: Conversation, message: ConversationMessage, reader: Reader
 ) -> str:
     """A message's text. Lines the system wrote ("<name> accepted quote ...") name the homeowner,
-    so installers get them with the first name only. Messages people wrote are left as typed."""
+    so installers get them with the first name only, and worded to them
+    ("Sam has accepted your quote QT-1."). Messages people wrote are left as typed."""
     if reader == "installer" and message.sender is MessageSender.SYSTEM:
-        return hide_surname(message.body, conversation.homeowner_name)
+        answered = _OFFER_ANSWER.fullmatch(message.body.removeprefix(conversation.homeowner_name))
+        if answered is None:
+            return hide_surname(message.body, conversation.homeowner_name)
+        name = given_name(conversation.homeowner_name)
+        return (
+            f"{name} has {answered['verb']} your quote {answered['reference']}.{answered['rest']}"
+        )
     return message.body
 
 

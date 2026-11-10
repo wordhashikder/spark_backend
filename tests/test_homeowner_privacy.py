@@ -46,7 +46,7 @@ def test_hide_surname_only_changes_the_full_name():
     assert hide_surname("Sam accepted quote QT-1.", "Sam") == "Sam accepted quote QT-1."
 
 
-async def _journey(client: httpx.AsyncClient, db: AsyncSession):
+async def _journey(client: httpx.AsyncClient, db: AsyncSession, decision: str = "accept"):
     """A homeowner who typed a full name gets a quote, messages and accepts an offer."""
     installer = await create_installer(db, "Pro Manchester")
     await client.post("/api/v1/quotes", json=quote_payload(first_name="Sam Taylor"))
@@ -66,7 +66,7 @@ async def _journey(client: httpx.AsyncClient, db: AsyncSession):
     )
     await client.post(
         f"/api/v1/conversation-links/quotes/{offer['id']}",
-        json={"token": token, "decision": "accept", "note": "Let's go ahead."},
+        json={"token": token, "decision": decision, "note": "Let's go ahead."},
     )
     return installer, lead, headers, conversation, base, token
 
@@ -92,8 +92,12 @@ async def test_installers_never_see_a_homeowners_surname_in_the_dashboard(
     # The line the system wrote when the homeowner accepted names them by first name.
     system = [m["body"] for m in responses[3].json()["messages"] if m["sender"] == "system"]
     assert len(system) == 1
-    assert system[0].startswith("Sam accepted quote QT-")
-    assert responses[2].json()["items"][0]["last_message"].startswith("Sam accepted quote QT-")
+    assert system[0].startswith("Sam has accepted your quote QT-")
+    assert (
+        responses[2]
+        .json()["items"][0]["last_message"]
+        .startswith("Sam has accepted your quote QT-")
+    )
 
 
 async def test_installers_never_see_a_homeowners_surname_in_emails(
@@ -111,6 +115,8 @@ async def test_installers_never_see_a_homeowners_surname_in_emails(
         rendered = fakes.emails._renderer.render(email)
         assert SURNAME not in str(rendered), email.template
     assert fakes.emails.of("new_lead")[0].context["first_name"] == "Sam"
+    subject = fakes.emails.of("offer_response")[0].subject
+    assert subject.startswith("Sam has accepted your quote QT-")
 
 
 async def test_the_team_and_the_homeowner_still_see_the_full_name(
@@ -190,3 +196,26 @@ async def test_enquiries_show_installers_the_first_name_only(
     admin = auth_headers(await create_user(db, role=Role.ADMIN))
     everything = (await client.get("/api/v1/admin/enquiries", headers=admin)).json()
     assert everything["items"][0]["name"] == "Sam Taylor"
+
+
+async def test_the_installers_thread_words_the_answer_to_them(
+    client: httpx.AsyncClient, db: AsyncSession, fakes: Fakes
+):
+    """Installers read "Sam has declined your quote ..."; other copies are unchanged."""
+    installer, _, headers, conversation, base, token = await _journey(client, db, "decline")
+    thread = (await client.get(base, headers=headers)).json()
+    system = [m["body"] for m in thread["messages"] if m["sender"] == "system"]
+    assert system[0].startswith("Sam has declined your quote QT-")
+    assert system[0].endswith("Let's go ahead.")
+    assert fakes.emails.of("offer_response")[0].subject.startswith(
+        "Sam has declined your quote QT-"
+    )
+
+    own = (await client.post("/api/v1/conversation-links/view", json={"token": token})).json()
+    assert any(m["body"].startswith("Sam Taylor declined quote QT-") for m in own["messages"])
+    admin = auth_headers(await create_user(db, role=Role.ADMIN))
+    detail = (
+        await client.get(f"/api/v1/admin/conversations/{conversation['id']}", headers=admin)
+    ).json()
+    assert any(m["body"].startswith("Sam Taylor declined quote QT-") for m in detail["messages"])
+    assert installer.user.email  # the installer is the one who received the notification

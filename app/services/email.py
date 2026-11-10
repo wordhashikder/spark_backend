@@ -628,7 +628,9 @@ def offer_response_to_installer(conversation: Conversation, offer: Offer, to: st
     homeowner = given_name(conversation.homeowner_name)
     return Email(
         to=to,
-        subject=f"{homeowner} {'accepted' if accepted else 'declined'} quote {offer.reference}",
+        subject=(
+            f"{homeowner} has {'accepted' if accepted else 'declined'} your quote {offer.reference}"
+        ),
         template="offer_response",
         context={
             "business_name": conversation.installer.business_name,
