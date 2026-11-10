@@ -1,6 +1,8 @@
 """Membership plans: the public catalogue and the Dashboard's plan manager (CRUD)."""
 
 import httpx
+import pytest
+import stripe
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +10,8 @@ from app.core.config import get_settings
 from app.core.enums import Role, StaffRole
 from app.core.plans import capabilities_for, lead_receiving_plan_keys, registry
 from app.models import Installer, PlanPrice
+from app.services import plans as plan_service
+from app.services.stripe_gateway import BillingUnavailableError
 from tests.helpers import (
     Fakes,
     Plan,
@@ -329,6 +333,81 @@ async def test_a_stripe_outage_saves_nothing(
 
     fakes.billing.fail_catalogue = False
     assert (await client.post(PLANS, headers=owner, json=_plan())).status_code == 201
+
+
+async def test_a_stripe_refusal_the_team_can_fix_says_so_and_saves_nothing(
+    client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
+):
+    owner = await _owner(db)
+    await link_stripe_prices(db)
+    cases = [
+        (stripe.PermissionError("no rak_product_write"), "billing_not_permitted"),
+        (
+            stripe.AuthenticationError("Invalid API Key provided: rk_live_****"),
+            "billing_key_rejected",
+        ),
+        (stripe.InvalidRequestError("Invalid name", "name"), "billing_rejected"),
+    ]
+    for error, code in cases:
+        fakes.billing.catalogue_error = error
+        failed = await client.patch(f"{PLANS}/pro", headers=owner, json={"price_pence": 100})
+        assert failed.status_code == 503, failed.text
+        body = failed.json()["error"]
+        assert body["code"] == code
+        # Fixed wording: nothing from Stripe's own message reaches the screen.
+        assert "rk_live" not in body["message"]
+        assert "rak_product_write" not in body["message"]
+        listing = {p["key"]: p for p in (await client.get(PLANS, headers=owner)).json()}
+        assert listing["pro"]["price_pence"] == 2900  # nothing was saved
+
+
+async def test_a_checkout_never_shows_the_staff_only_stripe_reason(fakes: Fakes, db: AsyncSession):
+    """Installers buying a plan get the plain "try again" message, whatever Stripe refused."""
+    fakes.billing.catalogue_error = stripe.PermissionError("no rak_product_write")
+    with pytest.raises(BillingUnavailableError) as raised:
+        await plan_service.ensure_stripe_price(db, "pro", fakes.billing)
+    assert type(raised.value) is BillingUnavailableError
+
+
+async def test_a_plan_whose_stripe_product_is_unknown_is_recreated_not_stuck(
+    client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
+):
+    """E.g. the plans were synced with test keys and the site now runs on live keys."""
+    owner = await _owner(db)
+    old = await link_stripe_prices(db)
+    fakes.billing.strict_catalogue = True  # Stripe knows none of the stored ids
+
+    response = await client.patch(f"{PLANS}/pro", headers=owner, json={"price_pence": 100})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["price_pence"], body["stripe_synced"]) == (100, True)
+    assert body["stripe_product_id"] == "prod_pro_new"
+    assert fakes.billing.prices[body["stripe_price_id"]]["product"] == "prod_pro_new"
+    assert fakes.billing.prices[body["stripe_price_id"]]["amount_pence"] == 100
+    # The old price is history: still listed, no longer on sale.
+    assert [(p["amount_pence"], p["is_active"]) for p in body["prices"]] == [
+        (100, True),
+        (2900, False),
+    ]
+    assert old["pro"] not in fakes.billing.prices
+
+
+async def test_syncing_with_stripe_repairs_plans_pointing_at_unknown_stripe_ids(
+    client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
+):
+    owner = await _owner(db)
+    old = await link_stripe_prices(db)
+    fakes.billing.strict_catalogue = True
+
+    synced = await client.post(f"{PLANS}/sync-stripe", headers=owner)
+    assert synced.status_code == 200, synced.text
+    assert synced.json()["plans_updated"] == 2  # Pro and Premium; Free has nothing in Stripe
+    listing = {p["key"]: p for p in (await client.get(PLANS, headers=owner)).json()}
+    for key in ("pro", "premium"):
+        assert listing[key]["stripe_product_id"] == f"prod_{key}_new"
+        assert listing[key]["stripe_price_id"] not in (None, old[key])
+        assert fakes.billing.prices[listing[key]["stripe_price_id"]]["product"] == f"prod_{key}_new"
+    assert (await client.post(f"{PLANS}/sync-stripe", headers=owner)).json()["plans_updated"] == 0
 
 
 async def test_without_stripe_plans_are_saved_and_synced_later(

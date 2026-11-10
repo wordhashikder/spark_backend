@@ -21,13 +21,44 @@ class BillingUnavailableError(ServiceUnavailableError):
     message = "Billing is temporarily unavailable. Please try again shortly."
 
 
+class BillingNotPermittedError(ServiceUnavailableError):
+    """Stripe refused the plan change: the API key is missing a permission (admin screens only)."""
+
+    code = "billing_not_permitted"
+    message = (
+        "Stripe did not allow this change. In Stripe, give the API key this site uses write "
+        "access to Products and Prices, then try again."
+    )
+
+
+class BillingKeyRejectedError(ServiceUnavailableError):
+    """Stripe did not accept the API key at all (admin screens only)."""
+
+    code = "billing_key_rejected"
+    message = (
+        "Stripe did not accept the API key this site is using. Please check the key in the "
+        "server settings."
+    )
+
+
+class BillingRejectedError(ServiceUnavailableError):
+    """Stripe understood but refused the plan change (admin screens only)."""
+
+    code = "billing_rejected"
+    message = "Stripe rejected this change. Please check the plan details and try again."
+
+
 class BillingGateway(Protocol):
     # ---- Catalogue ---------------------------------------------------------------------
 
     async def upsert_product(
         self, *, product_id: str | None, key: str, name: str, description: str | None
     ) -> str:
-        """Create or update the Stripe product behind a plan; returns its id."""
+        """Create or update the Stripe product behind a plan; returns its id.
+
+        If Stripe has no product with `product_id` (for example the keys now belong to
+        another Stripe mode), a new one is created and its id returned instead.
+        """
         ...
 
     async def archive_product(self, product_id: str) -> None: ...
@@ -106,18 +137,30 @@ class StripeGateway:
         self, *, product_id: str | None, key: str, name: str, description: str | None
     ) -> str:
         metadata = {"plan_key": key}
+        replacing = False
         if product_id is not None:
-            # An empty description clears it on Stripe's side.
-            await self._client.v1.products.update_async(
-                product_id, {"name": name, "description": description or "", "metadata": metadata}
-            )
-            return product_id
+            try:
+                # An empty description clears it on Stripe's side.
+                await self._client.v1.products.update_async(
+                    product_id,
+                    {"name": name, "description": description or "", "metadata": metadata},
+                )
+            except stripe.InvalidRequestError as exc:
+                if exc.code != "resource_missing":
+                    raise
+                logger.warning(
+                    "Stripe has no product %s (plan %s): creating a new one", product_id, key
+                )
+                replacing = True
+            else:
+                return product_id
         params: dict[str, Any] = {"name": name, "metadata": metadata}
         if description:
             params["description"] = description
-        product = await self._client.v1.products.create_async(
-            params, {"idempotency_key": f"plan-product-{key}"}
-        )
+        # A replacement must not reuse the first-creation key: Stripe rejects a repeated key
+        # whose details (such as the plan name) have changed since.
+        options = None if replacing else {"idempotency_key": f"plan-product-{key}"}
+        product = await self._client.v1.products.create_async(params, options)
         return product.id
 
     async def archive_product(self, product_id: str) -> None:
@@ -279,12 +322,32 @@ class UnconfiguredGateway:
     schedule_price_change = release_schedule = _unavailable
 
 
-async def call_stripe[T](operation: Awaitable[T]) -> T:
-    """Await a gateway call, turning Stripe failures into a 503 without leaking details."""
+async def call_stripe[T](operation: Awaitable[T], *, admin: bool = False) -> T:
+    """Await a gateway call, turning Stripe failures into a 503 without leaking details.
+
+    Callers on the staff-only plan screens pass `admin=True`: a refusal that the team can fix
+    (a missing key permission, a rejected key, a rejected change) then says so, in fixed
+    wording. Stripe's own message is only ever written to the log.
+    """
     try:
         return await operation
     except stripe.StripeError as exc:
-        logger.exception("Stripe request failed")
+        logger.error(
+            "Stripe request failed: %s code=%s status=%s request_id=%s: %s",
+            type(exc).__name__,
+            exc.code,
+            exc.http_status,
+            exc.request_id,
+            exc.user_message or exc,
+            exc_info=True,
+        )
+        if admin:
+            if isinstance(exc, stripe.PermissionError):
+                raise BillingNotPermittedError from exc
+            if isinstance(exc, stripe.AuthenticationError):
+                raise BillingKeyRejectedError from exc
+            if isinstance(exc, stripe.InvalidRequestError):
+                raise BillingRejectedError from exc
         raise BillingUnavailableError from exc
 
 

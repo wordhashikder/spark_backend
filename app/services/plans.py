@@ -142,20 +142,33 @@ async def require_assignable_plan(session: AsyncSession, key: str, *, field: str
 # ---- Writing ----------------------------------------------------------------------------
 
 
-async def _sync_to_stripe(plan: Plan, gateway: BillingGateway) -> None:
-    """Create/update the plan's Stripe product and any price not yet in Stripe."""
+async def _sync_to_stripe(plan: Plan, gateway: BillingGateway, *, admin: bool = False) -> None:
+    """Create/update the plan's Stripe product and any price not yet in Stripe.
+
+    `admin=True` is passed by the staff-only plan screens, where Stripe's specific reason (for
+    example a missing key permission) is shown to the team. Customer checkout leaves it off.
+    """
     if not get_settings().stripe_configured:
         return
     has_price = any(price.is_active for price in plan.prices)
     if has_price or plan.stripe_product_id is not None:
+        previous = plan.stripe_product_id
         plan.stripe_product_id = await call_stripe(
             gateway.upsert_product(
                 product_id=plan.stripe_product_id,
                 key=plan.key,
                 name=plan.name,
                 description=plan.tagline,
-            )
+            ),
+            admin=admin,
         )
+        if previous is not None and plan.stripe_product_id != previous:
+            # Stripe did not know the old product, so its current prices are unknown too (and
+            # belong to a product that is gone). They are created again just below.
+            logger.warning("Plan %s moved from Stripe product %s", plan.key, previous)
+            for price in plan.prices:
+                if price.is_active:
+                    price.stripe_price_id = None
     for price in plan.prices:
         if price.is_active and price.stripe_price_id is None and plan.stripe_product_id:
             price.stripe_price_id = await call_stripe(
@@ -165,7 +178,8 @@ async def _sync_to_stripe(plan: Plan, gateway: BillingGateway) -> None:
                     amount_pence=price.amount_pence,
                     currency=price.currency,
                     interval=price.interval,
-                )
+                ),
+                admin=admin,
             )
 
 
@@ -226,7 +240,7 @@ async def create_plan(session: AsyncSession, data: PlanCreate, gateway: BillingG
     await session.flush()
     if data.is_popular:
         await _only_popular(session, plan.key)
-    await _sync_to_stripe(plan, gateway)
+    await _sync_to_stripe(plan, gateway, admin=True)
     await session.commit()
     await load_registry(session)
     return await get_plan(session, data.key)
@@ -270,7 +284,7 @@ async def update_plan(
     if data.is_popular:
         await _only_popular(session, plan.key)
 
-    await _sync_to_stripe(plan, gateway)
+    await _sync_to_stripe(plan, gateway, admin=True)
     await session.commit()
     await _archive_prices(retired, gateway)
     await load_registry(session)
@@ -314,7 +328,7 @@ async def sync_all(session: AsyncSession, gateway: BillingGateway) -> int:
             plan.stripe_product_id,
             tuple(price.stripe_price_id for price in plan.prices),
         )
-        await _sync_to_stripe(plan, gateway)
+        await _sync_to_stripe(plan, gateway, admin=True)
         after = (plan.stripe_product_id, tuple(price.stripe_price_id for price in plan.prices))
         changed += before != after
     await session.commit()

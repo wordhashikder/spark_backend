@@ -119,6 +119,10 @@ class FakeBillingGateway:
     price_changes: list[dict[str, str]] = field(default_factory=list)
     decline_price_change: bool = False
     fail_catalogue: bool = False
+    catalogue_error: stripe.StripeError | None = None
+    # When set, only products created through this fake exist: any other id is "unknown to
+    # Stripe" (as after switching the keys to another Stripe mode) and is replaced.
+    strict_catalogue: bool = False
 
     # ---- Catalogue ----
     async def upsert_product(
@@ -126,6 +130,10 @@ class FakeBillingGateway:
     ) -> str:
         if self.fail_catalogue:
             raise stripe.APIConnectionError("Stripe is down")
+        if self.catalogue_error is not None:
+            raise self.catalogue_error
+        if self.strict_catalogue and product_id is not None and product_id not in self.products:
+            product_id = f"prod_{key}_new"
         product_id = product_id or f"prod_{key}"
         self.products[product_id] = {"key": key, "name": name, "description": description}
         return product_id
