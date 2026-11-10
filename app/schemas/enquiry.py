@@ -6,6 +6,7 @@ from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.names import given_name
 from app.models import InstallerEnquiry
 from app.schemas.common import Email, Phone, blank_as_none, text
 
@@ -22,7 +23,8 @@ class EnquiryCreate(BaseModel):
 
 class Enquiry(BaseModel):
     """An enquiry as its installer sees it: neither the customer's email address nor their
-    phone number is included, the installer answers through PickASparky messages."""
+    phone number is included, and the name is the first name only. The installer answers
+    through PickASparky messages."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,6 +32,16 @@ class Enquiry(BaseModel):
     name: str
     message: str
     created_at: datetime
+
+    @classmethod
+    def for_installer(cls, enquiry: InstallerEnquiry) -> Self:
+        """The installer's copy: the customer's first name only."""
+        return cls(
+            id=enquiry.id,
+            name=given_name(enquiry.name),
+            message=enquiry.message,
+            created_at=enquiry.created_at,
+        )
 
 
 class AdminEnquiry(Enquiry):

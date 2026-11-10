@@ -8,6 +8,7 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.enums import MessageSender, OfferStatus
+from app.core.names import given_name, hide_surname
 from app.models import Conversation, ConversationMessage, Offer
 from app.models.base import utcnow
 from app.schemas.common import text
@@ -64,6 +65,33 @@ class MessageOut(BaseModel):
     created_at: datetime
 
 
+Reader = Literal["installer", "homeowner", "admin"]
+
+
+def homeowner_name_for(conversation: Conversation, reader: Reader) -> str:
+    """The homeowner's name as `reader` may see it: installers get the first name only."""
+    if reader == "installer":
+        return given_name(conversation.homeowner_name)
+    return conversation.homeowner_name
+
+
+def message_text_for(
+    conversation: Conversation, message: ConversationMessage, reader: Reader
+) -> str:
+    """A message's text. Lines the system wrote ("<name> accepted quote ...") name the homeowner,
+    so installers get them with the first name only. Messages people wrote are left as typed."""
+    if reader == "installer" and message.sender is MessageSender.SYSTEM:
+        return hide_surname(message.body, conversation.homeowner_name)
+    return message.body
+
+
+def message_out(
+    conversation: Conversation, message: ConversationMessage, reader: Reader
+) -> MessageOut:
+    out = MessageOut.model_validate(message)
+    return out.model_copy(update={"body": message_text_for(conversation, message, reader)})
+
+
 class OfferOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -115,7 +143,7 @@ class ConversationSummary(BaseModel):
         conversation: Conversation,
         last: ConversationMessage | None,
         *,
-        reader: Literal["installer", "homeowner", "admin"],
+        reader: Reader,
     ) -> Self:
         offers = conversation.offers
         read_at = (
@@ -139,13 +167,13 @@ class ConversationSummary(BaseModel):
             installer_id=conversation.installer_id,
             installer_name=conversation.installer.business_name,
             installer_slug=conversation.installer.slug,
-            homeowner_name=conversation.homeowner_name,
+            homeowner_name=homeowner_name_for(conversation, reader),
             homeowner_email=None if reader == "installer" else conversation.homeowner_email,
             kind="lead" if conversation.quote_match_id else "enquiry",
             lead_id=conversation.quote_match_id,
             enquiry_id=conversation.enquiry_id,
             last_message_at=conversation.last_message_at,
-            last_message=last.body[:200] if last else None,
+            last_message=message_text_for(conversation, last, reader)[:200] if last else None,
             last_sender=last.sender if last else None,
             unread=unread,
             offer_count=len(offers),
@@ -181,7 +209,8 @@ class InstallerQuote(OfferOut):
         return cls(
             **OfferOut.model_validate(offer).model_dump(),
             conversation_id=conversation.id,
-            homeowner_name=conversation.homeowner_name,
+            # Installers only: the homeowner's first name.
+            homeowner_name=homeowner_name_for(conversation, "installer"),
         )
 
 

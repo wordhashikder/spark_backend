@@ -18,6 +18,7 @@ from app.core.enums import (
     Timing,
 )
 from app.core.exceptions import FieldValueError
+from app.core.names import given_name
 from app.models import QuoteMatch
 from app.schemas.common import Email, Phone, Postcode, blank_as_none, text
 from app.services.geocoding import outward_code
@@ -88,6 +89,7 @@ class LeadQuote(BaseModel):
     vehicle_undecided: bool
     timing: Timing
     notes: str | None
+    # Only the first name, even when the homeowner typed their full name (core/names.py).
     first_name: str
 
 
@@ -143,7 +145,7 @@ class Lead(BaseModel):
                 vehicle_undecided=quote.vehicle_undecided if full_access else False,
                 timing=quote.timing,
                 notes=quote.notes if full_access else None,
-                first_name=quote.first_name,
+                first_name=given_name(quote.first_name),
             ),
         )
 

@@ -212,7 +212,7 @@ async def list_enquiries(
         session, installer, offset=page.offset, limit=page.page_size
     )
     return Paginated.build(
-        [Enquiry.model_validate(enquiry) for enquiry in found],
+        [Enquiry.for_installer(enquiry) for enquiry in found],
         total=total,
         page=page.page,
         page_size=page.page_size,

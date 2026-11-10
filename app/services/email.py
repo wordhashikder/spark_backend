@@ -20,6 +20,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoes
 
 from app.core.config import Settings, get_settings
 from app.core.enums import Service
+from app.core.names import given_name
 from app.models import (
     ContactMessage,
     Conversation,
@@ -342,7 +343,7 @@ def new_lead(
         subject=f"New Customer Enquiry : {service.label} in {location}",
         template="new_lead",
         context={
-            "first_name": quote.first_name,
+            "first_name": given_name(quote.first_name),
             "location": location,
             "service": service.label,
             "job": _job_phrase(service),
@@ -383,16 +384,17 @@ def quote_unmatched(quote: QuoteRequest, *, held: bool = False) -> Email:
 def installer_enquiry(enquiry: InstallerEnquiry, installer: Installer, to: str) -> Email:
     """A customer's direct request, sent to the installer.
 
-    The customer's email address and phone number are left out (and no Reply-To): the
-    installer answers from their dashboard, where the customer is emailed on their behalf.
+    The customer's email address and phone number are left out (and no Reply-To), and so is
+    their surname: the installer answers from their dashboard, where the customer is emailed
+    on their behalf.
     """
     return Email(
         to=to,
-        subject=f"New quote request from {enquiry.name}",
+        subject=f"New quote request from {given_name(enquiry.name)}",
         template="installer_enquiry",
         context={
             "business_name": installer.business_name,
-            "customer": {"name": enquiry.name},
+            "customer": {"name": given_name(enquiry.name)},
             "message": enquiry.message,
             "link": _dashboard_url("/leads"),
         },
@@ -610,11 +612,11 @@ def conversation_offer_to_homeowner(
 def conversation_reply_to_installer(conversation: Conversation, body: str, to: str) -> Email:
     return Email(
         to=to,
-        subject=f"New message from {conversation.homeowner_name}",
+        subject=f"New message from {given_name(conversation.homeowner_name)}",
         template="conversation_reply",
         context={
             "business_name": conversation.installer.business_name,
-            "name": conversation.homeowner_name,
+            "name": given_name(conversation.homeowner_name),
             "body": body,
             "link": installer_conversation_url(conversation.id),
         },
@@ -623,16 +625,14 @@ def conversation_reply_to_installer(conversation: Conversation, body: str, to: s
 
 def offer_response_to_installer(conversation: Conversation, offer: Offer, to: str) -> Email:
     accepted = offer.status.value == "accepted"
+    homeowner = given_name(conversation.homeowner_name)
     return Email(
         to=to,
-        subject=(
-            f"{conversation.homeowner_name} {'accepted' if accepted else 'declined'} "
-            f"quote {offer.reference}"
-        ),
+        subject=f"{homeowner} {'accepted' if accepted else 'declined'} quote {offer.reference}",
         template="offer_response",
         context={
             "business_name": conversation.installer.business_name,
-            "name": conversation.homeowner_name,
+            "name": homeowner,
             "accepted": accepted,
             "reference": offer.reference,
             "amount": f"£{offer.amount:,.2f}",
@@ -647,22 +647,24 @@ def conversation_team_message(
 ) -> Email:
     """The PickASparky team added a message to a conversation (sent to both sides)."""
     homeowner = audience == "homeowner"
+    # The installer reads about the homeowner by first name only.
+    homeowner_name = (
+        conversation.homeowner_name if homeowner else given_name(conversation.homeowner_name)
+    )
     return Email(
         to=to,
         subject=(
             "A message from PickASparky about your quote from "
             f"{conversation.installer.business_name}"
             if homeowner
-            else f"A message from PickASparky about {conversation.homeowner_name}'s request"
+            else f"A message from PickASparky about {homeowner_name}'s request"
         ),
         template="conversation_team_message",
         context={
             "name": conversation.homeowner_name
             if homeowner
             else conversation.installer.business_name,
-            "other_party": conversation.installer.business_name
-            if homeowner
-            else conversation.homeowner_name,
+            "other_party": conversation.installer.business_name if homeowner else homeowner_name,
             "body": body,
             "link": link,
         },
