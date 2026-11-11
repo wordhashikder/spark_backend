@@ -267,6 +267,35 @@ async def test_the_default_plan_is_protected(client: httpx.AsyncClient, db: Asyn
     assert (deleted.status_code, deleted.json()["error"]["code"]) == (409, "default_plan")
 
 
+async def test_the_default_plan_can_be_edited_like_any_other(
+    client: httpx.AsyncClient, db: AsyncSession
+):
+    """What the Dashboard form sends for Free: no `is_active` (it has no "On sale" switch)."""
+    owner = await _owner(db)
+    response = await client.patch(
+        f"{PLANS}/free",
+        headers=owner,
+        json={
+            "name": "Free",
+            "tagline": "Free Pack",
+            "features": ["Get listed"],
+            "is_popular": False,
+            "sort_rank": 0,
+            "receives_leads": False,
+            "accepts_direct_quotes": False,
+            "full_public_profile": True,
+            "public_service_limit": 3,
+            "max_gallery_photos": 2,
+            "price_pence": None,
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["is_default"], body["is_active"], body["price_pence"]) == (True, True, None)
+    assert (body["full_public_profile"], body["public_service_limit"]) == (True, 3)
+    assert body["max_gallery_photos"] == 2
+
+
 async def test_update_validation_and_unknown_plans(client: httpx.AsyncClient, db: AsyncSession):
     owner = await _owner(db)
     missing = await client.patch(f"{PLANS}/nope", headers=owner, json={"name": "X"})
