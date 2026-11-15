@@ -18,7 +18,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from app.core import security
 from app.core.config import get_settings
-from app.core.enums import InstallerStatus, MessageSender, OfferStatus
+from app.core.enums import InstallerStatus, MessageSender, OfferStatus, QuoteStatus
 from app.core.exceptions import InvalidTokenError, NotAuthenticatedError, NotFoundError
 from app.models import (
     Conversation,
@@ -283,6 +283,13 @@ def _status(
             "matching",
             "Active - Matching with installers",
             "Installers have your request and are preparing their quotes.",
+        )
+    if quote.status is QuoteStatus.PENDING_LOCATION:
+        # Matching starts within a minute; the homeowner is never told about the postcode lookup.
+        return (
+            "matching",
+            "Active - Matching with installers",
+            "We're matching your request with installers in your area.",
         )
     if quote.status.value == "new":
         return (

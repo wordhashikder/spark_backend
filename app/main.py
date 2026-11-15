@@ -23,6 +23,7 @@ from app.core.middleware import (
 )
 from app.core.rate_limit import RateLimiter
 from app.services import plans as plan_service
+from app.services import quote_recovery
 from app.services.email import SmtpEmailSender
 from app.services.geocoding import PostcodesIOGeocoder
 from app.services.revalidation import HttpRevalidator
@@ -53,13 +54,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.rate_limit_storage_uri, enabled=settings.rate_limit_enabled
         )
         refresher = await _start_plan_catalogue(settings.plan_refresh_enabled)
+        recovery = (
+            asyncio.create_task(quote_recovery.recover_forever(geocoder, app.state.email_sender))
+            if settings.quote_recovery_enabled
+            else None
+        )
         try:
             yield
         finally:
-            if refresher is not None:
-                refresher.cancel()
-                with suppress(asyncio.CancelledError):
-                    await refresher
+            for task in (refresher, recovery):
+                if task is not None:
+                    task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await task
     await engine.dispose()
 
 

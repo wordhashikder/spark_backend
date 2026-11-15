@@ -1,6 +1,5 @@
 """Shared FastAPI dependencies: sessions, external services, authentication and pagination."""
 
-import dataclasses
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from typing import Annotated
@@ -19,7 +18,7 @@ from app.core.rate_limit import client_ip
 from app.models import Customer, Installer, User
 from app.services import customers, installers, platform
 from app.services.access import access_for
-from app.services.email import Email, EmailSender
+from app.services.email import Email, EmailSender, for_delivery
 from app.services.geocoding import Geocoder
 from app.services.revalidation import Revalidator
 from app.services.storage import ImageStorage
@@ -106,17 +105,10 @@ class EmailQueue:
         self._settings = settings
 
     def send(self, emails: Iterable[Email]) -> None:
-        organisation = self._settings.organisation
         for email in emails:
-            if email.team and not self._settings.notifications.email_alerts:
-                continue
-            prepared = dataclasses.replace(
-                email,
-                to=organisation.support_email if email.team else email.to,
-                from_name=email.from_name or organisation.platform_name,
-                context={"support_email": organisation.support_email, **email.context},
-            )
-            self._background_tasks.add_task(self._sender.send, prepared)
+            prepared = for_delivery(email, self._settings)
+            if prepared is not None:
+                self._background_tasks.add_task(self._sender.send, prepared)
 
 
 EmailQueueDep = Annotated[EmailQueue, Depends()]

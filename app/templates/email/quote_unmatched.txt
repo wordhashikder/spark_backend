@@ -7,6 +7,8 @@ Quote request {{ reference }} could not be matched to an installer.
 
 {% if geocoded %}
 No approved, lead-receiving installer covers this postcode.
+{% elif postcode_unknown %}
+The postcode lookup does not recognise this postcode, so no matching was attempted. The homeowner may have mistyped it: please check it with them.
 {% else %}
 The postcode could not be geocoded because the lookup service was unavailable, so no matching was attempted.
 {% endif %}

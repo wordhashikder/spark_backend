@@ -1,5 +1,7 @@
 """Matching quote requests to installers by coverage, plan and distance."""
 
+import uuid
+
 from sqlalchemy import func, nulls_last, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -47,6 +49,16 @@ async def direct_quote_target(session: AsyncSession, slug: str) -> Installer | N
     return await session.scalar(
         select(Installer)
         .where(Installer.slug == slug, Installer.status == InstallerStatus.APPROVED)
+        .options(joinedload(Installer.user))
+    )
+
+
+async def installer_by_id(session: AsyncSession, installer_id: uuid.UUID) -> Installer | None:
+    """The approved installer a request was addressed to, looked up again when it is
+    matched later (see `quote_recovery`)."""
+    return await session.scalar(
+        select(Installer)
+        .where(Installer.id == installer_id, Installer.status == InstallerStatus.APPROVED)
         .options(joinedload(Installer.user))
     )
 

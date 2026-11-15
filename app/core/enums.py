@@ -79,6 +79,9 @@ class QuoteStatus(StrEnum):
     NEW = "new"
     MATCHED = "matched"
     UNMATCHED = "unmatched"
+    # The postcode lookup was down when the request arrived: it is stored in full and matched
+    # by `quote_recovery` as soon as the service answers. Never a verdict on the request.
+    PENDING_LOCATION = "pending_location"
 
 
 class LeadStatus(StrEnum):

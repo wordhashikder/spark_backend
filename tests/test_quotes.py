@@ -167,7 +167,7 @@ async def test_unmatched_quote_notifies_support(
     assert internal.context["geocoded"] is True
 
 
-async def test_quote_is_still_accepted_when_geocoding_is_down(
+async def test_quote_is_kept_for_matching_when_geocoding_is_down(
     client: httpx.AsyncClient, fakes: Fakes, db: AsyncSession
 ):
     await create_installer(db, "Pro Manchester")
@@ -175,13 +175,25 @@ async def test_quote_is_still_accepted_when_geocoding_is_down(
 
     response = await client.post("/api/v1/quotes", json=quote_payload())
     assert response.status_code == 201
-    assert response.json()["matched_installers"] == 0
-    assert response.json()["postcode"] == "M1 1AA"
+    body = response.json()
+    assert body["matched_installers"] == 0
+    assert body["postcode"] == "M1 1AA"
 
+    # An outage is not a verdict on the request: it waits for the lookup, it is not "unmatched".
     quote = await db.scalar(select(QuoteRequest))
-    assert quote.status is QuoteStatus.UNMATCHED
+    assert quote.status is QuoteStatus.PENDING_LOCATION
     assert (quote.latitude, quote.longitude, quote.district) == (None, None, None)
-    assert fakes.emails.of("quote_unmatched")[0].context["geocoded"] is False
+    assert await db.scalar(select(func.count()).select_from(QuoteMatch)) == 0
+
+    # The homeowner gets exactly the usual confirmation (nothing reveals the outage); only
+    # the team is alerted, and nobody is told about a request that has no coordinates yet.
+    (confirmation, alert) = fakes.emails.sent
+    assert confirmation.template == "quote_confirmation"
+    assert "pending" not in confirmation.context
+    assert alert.template == "quote_awaiting_location"
+    assert alert.team
+    assert fakes.emails.of("quote_unmatched") == []
+    assert fakes.emails.of("new_lead") == []
 
 
 async def test_followup_must_match_the_existing_charger_branch(client: httpx.AsyncClient):
@@ -321,7 +333,12 @@ async def test_honeypot_submissions_look_successful_but_store_nothing(
     )
     assert response.status_code == 201
     assert re.fullmatch(r"PAS-[A-Z2-9]{6}", response.json()["reference"])
-    assert set(response.json()) == {"reference", "postcode", "matched_installers", "held"}
+    assert set(response.json()) == {
+        "reference",
+        "postcode",
+        "matched_installers",
+        "held",
+    }
     assert await db.scalar(select(func.count()).select_from(QuoteRequest)) == 0
     assert fakes.emails.sent == []
 

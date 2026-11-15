@@ -8,6 +8,8 @@
 <p style="margin:0 0 16px;">Quote request <strong>{{ reference }}</strong> could not be matched to an installer.</p>
 {% if geocoded %}
 <p style="margin:0 0 16px;">No approved, lead-receiving installer covers this postcode.</p>
+{% elif postcode_unknown %}
+<p style="margin:0 0 16px;">The postcode lookup does not recognise this postcode, so no matching was attempted. The homeowner may have mistyped it: please check it with them.</p>
 {% else %}
 <p style="margin:0 0 16px;">The postcode could not be geocoded because the lookup service was unavailable, so no matching was attempted.</p>
 {% endif %}

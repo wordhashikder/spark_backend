@@ -17,7 +17,7 @@ CommaSeparated = Annotated[list[str], NoDecode]
 
 
 class Settings(BaseSettings):
-    """Every runtime setting; `.env.example` documents each variable."""
+    """Every runtime setting; README.md documents each variable."""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     rate_limit_storage_uri: str = "memory://"
     postcodes_api_url: str = "https://api.postcodes.io"
     max_quote_matches: int = Field(default=5, ge=1, le=20)
+    # Requests received while postcodes.io was down are matched once it answers again:
+    # how often to look for them and how many to handle per pass.
+    quote_recovery_interval_seconds: int = Field(default=60, ge=5)
+    quote_recovery_batch: int = Field(default=25, ge=1, le=200)
 
     @field_validator("cors_origins", "allowed_hosts", mode="before")
     @classmethod
@@ -99,7 +103,7 @@ class Settings(BaseSettings):
     )
     @classmethod
     def _blank_is_unset(cls, value: object) -> object:
-        """Treat `KEY=` lines copied from `.env.example` as "not configured"."""
+        """Treat a blank `KEY=` line in `.env` as "not configured"."""
         if isinstance(value, str) and not value.strip():
             return None
         return value
@@ -181,6 +185,11 @@ class Settings(BaseSettings):
     @property
     def stripe_webhook_configured(self) -> bool:
         return bool(self.stripe_webhook_secret)
+
+    @property
+    def quote_recovery_enabled(self) -> bool:
+        """Workers retry requests that are waiting for a postcode lookup."""
+        return self.environment != "test"
 
     @property
     def plan_refresh_enabled(self) -> bool:

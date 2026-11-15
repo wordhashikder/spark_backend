@@ -1,0 +1,18 @@
+Quote request {{ reference }} ({{ postcode }}) has not been matched yet: the postcode lookup service (postcodes.io) is unavailable.
+
+The homeowner has received their usual confirmation and knows nothing about this. The system retries about every minute and matches the request, and emails the installers, as soon as the service answers, so no action is needed. If you would rather not wait, you can choose its installers yourself:
+
+{{ link }}
+
+Customer
+{{ customer.first_name }}
+{{ customer.email }}
+{% if customer.phone %}
+{{ customer.phone }}
+{% else %}
+No phone number given: please reply by email.
+{% endif %}
+
+{% for question, answer in answers %}
+{{ question }}: {{ answer }}
+{% endfor %}

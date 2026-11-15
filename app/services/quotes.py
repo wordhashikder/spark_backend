@@ -3,6 +3,7 @@
 import logging
 import secrets
 import uuid
+from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import security
 from app.core.config import get_settings
 from app.core.enums import QuoteStatus
-from app.models import QuoteMatch, QuoteRequest
+from app.models import Installer, QuoteMatch, QuoteRequest
 from app.models.base import utcnow
 from app.schemas.quote import QuoteCreate, QuoteCreated
 from app.services import customers, installers, matching
@@ -50,12 +51,61 @@ def decoy_response(data: QuoteCreate) -> QuoteCreated:
 
 
 async def _geocode(geocoder: Geocoder, postcode: str) -> GeocodedPostcode | None:
-    """Geocode for matching; an outage is tolerated so the customer's request is never lost."""
+    """Geocode for matching. `None` means the lookup service is down (an unknown postcode
+    raises, as before): the request is kept and matched later by `quote_recovery`."""
     try:
         return await installers.geocode_or_field_error(geocoder, postcode, "postcode")
     except GeocodingUnavailableError:
-        logger.warning("Geocoding unavailable; storing quote for %s unmatched", postcode)
+        logger.warning("Geocoding unavailable; quote for %s waits for the lookup", postcode)
         return None
+
+
+async def match_stored_quote(
+    session: AsyncSession,
+    quote: QuoteRequest,
+    target: Installer | None,
+    rules: LeadMatching,
+) -> tuple[list[QuoteMatch], bool]:
+    """Match a request that has its coordinates: create the leads and set the status.
+
+    Used for a new request and, later, for one that was waiting for the lookup service.
+    Returns the leads and whether the request is held for the team (automatic matching off).
+    """
+    if quote.latitude is None or quote.longitude is None:
+        raise ValueError("The request has no coordinates to match on.")
+    matched = await matching.match_installers(
+        session,
+        latitude=quote.latitude,
+        longitude=quote.longitude,
+        target=target,
+        limit=None if rules.automatic else 1,
+        nearby=rules.automatic,
+    )
+    leads = [
+        QuoteMatch(id=uuid.uuid7(), quote_request=quote, installer=installer)
+        for installer in matched
+    ]
+    session.add_all(leads)
+    held = not rules.automatic and not matched
+    if matched:
+        quote.status = QuoteStatus.MATCHED
+    else:
+        quote.status = QuoteStatus.NEW if held else QuoteStatus.UNMATCHED
+    return leads, held
+
+
+def lead_emails(
+    quote: QuoteRequest, leads: Sequence[QuoteMatch], *, held: bool, slots: int
+) -> list[Email]:
+    """The emails that follow matching: each installer's new lead, or the team's alert when
+    nobody was matched (or the request is held for them)."""
+    outbox = [
+        emails.new_lead(quote, lead.installer, lead.installer.user.email, lead.id, slots)
+        for lead in leads
+    ]
+    if not leads:
+        outbox.append(emails.quote_unmatched(quote, held=held))
+    return outbox
 
 
 async def create_quote(
@@ -71,6 +121,11 @@ async def create_quote(
     `rules.max_installers` to respond may quote. With automatic matching off (Settings), the
     request is held for the team to choose its installers; only an installer the homeowner
     asked for by name receives it at once.
+
+    If the postcode lookup is down, the request is stored as `PENDING_LOCATION`, not as
+    unmatched, and `quote_recovery` matches it when the service answers again. The homeowner
+    sees and receives exactly what they always do (nothing reveals the outage); only the team
+    is alerted, and can choose installers themselves meanwhile.
     """
     rules = rules or LeadMatching(max_installers=get_settings().max_quote_matches)
     place = await _geocode(geocoder, data.postcode)
@@ -106,49 +161,34 @@ async def create_quote(
     )
     session.add(quote)
 
-    matched = (
-        await matching.match_installers(
-            session,
-            latitude=place.latitude,
-            longitude=place.longitude,
-            target=target,
-            limit=None if rules.automatic else 1,
-            nearby=rules.automatic,
-        )
-        if place
-        else []
-    )
-    leads = [
-        QuoteMatch(id=uuid.uuid7(), quote_request=quote, installer=installer)
-        for installer in matched
-    ]
-    session.add_all(leads)
-    match_ids = {lead.installer.id: lead.id for lead in leads}
-    slots = rules.max_installers
-    held = not rules.automatic and not matched
-    if matched:
-        quote.status = QuoteStatus.MATCHED
+    pending = place is None
+    leads: list[QuoteMatch] = []
+    held = False
+    if pending:
+        quote.status = QuoteStatus.PENDING_LOCATION
     else:
-        quote.status = QuoteStatus.NEW if held else QuoteStatus.UNMATCHED
+        leads, held = await match_stored_quote(session, quote, target, rules)
     link = customers.link_url(await customers.issue_link(session, customer))
     await session.commit()
 
     outbox = [
         emails.quote_confirmation(
-            quote, [installer.business_name for installer in matched], held=held, link=link
-        ),
-        *(
-            emails.new_lead(quote, installer, installer.user.email, match_ids[installer.id], slots)
-            for installer in matched
+            quote,
+            [lead.installer.business_name for lead in leads],
+            held=held,
+            link=link,
         ),
     ]
-    if not matched:
-        outbox.append(emails.quote_unmatched(quote, held=held))
+    if pending:
+        # Only the team hears about the outage; the homeowner gets the usual confirmation.
+        outbox.append(emails.quote_awaiting_location(quote))
+    else:
+        outbox += lead_emails(quote, leads, held=held, slots=rules.max_installers)
     return (
         QuoteCreated(
             reference=quote.reference,
             postcode=quote.postcode,
-            matched_installers=len(matched),
+            matched_installers=len(leads),
             held=held,
         ),
         outbox,

@@ -63,13 +63,17 @@ WAITING_WINDOW = timedelta(days=30)
 
 
 def waiting_for_team() -> ColumnElement[bool]:
-    """Requests that need the team: held for manual matching, or matched no installer.
+    """Requests that need the team: held for manual matching, matched no installer, or still
+    waiting for the postcode lookup (it is retried automatically, and until it answers the
+    team can choose the installers themselves).
 
     The one rule behind the bell, the Leads & Quotes badge and the "Waiting for you" filter
     (its count and its list), so they always agree. Only the last 30 days are counted.
     """
     return and_(
-        QuoteRequest.status.in_((QuoteStatus.NEW, QuoteStatus.UNMATCHED)),
+        QuoteRequest.status.in_(
+            (QuoteStatus.NEW, QuoteStatus.UNMATCHED, QuoteStatus.PENDING_LOCATION)
+        ),
         QuoteRequest.created_at >= utcnow() - WAITING_WINDOW,
     )
 

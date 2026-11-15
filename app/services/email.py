@@ -4,6 +4,7 @@ Use cases build `Email` values; endpoints queue them on `BackgroundTasks` once t
 transaction has committed. Sending never raises into a request.
 """
 
+import dataclasses
 import logging
 import re
 import uuid
@@ -13,7 +14,7 @@ from datetime import UTC, datetime
 from email.message import EmailMessage
 from email.utils import format_datetime, formataddr, make_msgid
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import aiosmtplib
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
@@ -32,6 +33,9 @@ from app.models import (
     User,
 )
 from app.services.geocoding import outward_code
+
+if TYPE_CHECKING:
+    from app.services.platform import PlatformSettings
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,23 @@ class Email:
 
 class EmailSender(Protocol):
     async def send(self, email: Email) -> None: ...
+
+
+def for_delivery(email: Email, platform: PlatformSettings) -> Email | None:
+    """Apply the Settings page to an email on its way out, or `None` to drop it.
+
+    The platform name is the sender, the support address receives team alerts (which are
+    dropped while email alerts are off) and is the address shown in every email.
+    """
+    if email.team and not platform.notifications.email_alerts:
+        return None
+    organisation = platform.organisation
+    return dataclasses.replace(
+        email,
+        to=organisation.support_email if email.team else email.to,
+        from_name=email.from_name or organisation.platform_name,
+        context={"support_email": organisation.support_email, **email.context},
+    )
 
 
 class SmtpEmailSender:
@@ -354,8 +375,14 @@ def new_lead(
     )
 
 
-def quote_unmatched(quote: QuoteRequest, *, held: bool = False) -> Email:
-    """Team alert: a request matched nobody, or (`held`) waits for the team to choose."""
+def quote_unmatched(
+    quote: QuoteRequest, *, held: bool = False, postcode_unknown: bool = False
+) -> Email:
+    """Team alert: a request matched nobody, or (`held`) waits for the team to choose.
+
+    `postcode_unknown`: the lookup answered, and does not know the postcode (as opposed to
+    no installer covering it).
+    """
     return Email(
         to=get_settings().support_email,
         subject=(
@@ -370,6 +397,34 @@ def quote_unmatched(quote: QuoteRequest, *, held: bool = False) -> Email:
             "reference": quote.reference,
             "answers": quote_summary(quote),
             "geocoded": quote.latitude is not None,
+            "postcode_unknown": postcode_unknown,
+            "customer": {
+                "first_name": quote.first_name,
+                "email": quote.email,
+                "phone": quote.phone,
+            },
+        },
+        reply_to=quote.email,
+        team=True,
+    )
+
+
+def quote_awaiting_location(quote: QuoteRequest) -> Email:
+    """Team alert: the postcode lookup was down, so the request has not been matched yet.
+
+    The homeowner is told nothing (they get the usual confirmation). The request is matched
+    automatically once the lookup answers; until then the team can choose installers
+    themselves from the dashboard.
+    """
+    return Email(
+        to=get_settings().support_email,
+        subject=f"Quote request {quote.reference} is waiting for the postcode lookup",
+        template="quote_awaiting_location",
+        context={
+            "link": _dashboard_url(f"/leads?open={quote.id}"),
+            "reference": quote.reference,
+            "postcode": quote.postcode,
+            "answers": quote_summary(quote),
             "customer": {
                 "first_name": quote.first_name,
                 "email": quote.email,
