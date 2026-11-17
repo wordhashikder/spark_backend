@@ -1,4 +1,5 @@
-"""The building blocks of editable page content: documents, sections and typed fields.
+"""
+The building blocks of editable page content: documents, sections and typed fields.
 
 Each public page is a `Document` made of `Section`s of `Field`s. A field carries its
 label, help text, limits and the page's original wording (its default). From one

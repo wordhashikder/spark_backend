@@ -1,4 +1,5 @@
-"""SQL building blocks describing how far each quote request has got.
+"""
+SQL building blocks describing how far each quote request has got.
 
 A request moves through three stages the back office shows as badges:
 
@@ -68,13 +69,15 @@ def waiting_for_team() -> ColumnElement[bool]:
     team can choose the installers themselves).
 
     The one rule behind the bell, the Leads & Quotes badge and the "Waiting for you" filter
-    (its count and its list), so they always agree. Only the last 30 days are counted.
+    (its count and its list), so they always agree. Only the last 30 days are counted, and
+    archived requests are not.
     """
     return and_(
         QuoteRequest.status.in_(
             (QuoteStatus.NEW, QuoteStatus.UNMATCHED, QuoteStatus.PENDING_LOCATION)
         ),
         QuoteRequest.created_at >= utcnow() - WAITING_WINDOW,
+        QuoteRequest.archived_at.is_(None),
     )
 
 

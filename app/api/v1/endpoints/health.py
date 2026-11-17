@@ -1,4 +1,6 @@
-"""Liveness and readiness probes."""
+"""
+Liveness and readiness probes.
+"""
 
 import logging
 

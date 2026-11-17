@@ -1,4 +1,6 @@
-"""Numbers for the installer's dashboard home."""
+"""
+Numbers for the installer's dashboard home.
+"""
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession

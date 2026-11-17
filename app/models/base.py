@@ -1,4 +1,6 @@
-"""Declarative base, shared column mixins and the enum column helper."""
+"""
+Declarative base, shared column mixins and the enum column helper.
+"""
 
 import uuid
 from datetime import UTC, datetime

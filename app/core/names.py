@@ -1,4 +1,5 @@
-"""How a homeowner's name is shown to installers.
+"""
+How a homeowner's name is shown to installers.
 
 Homeowners may type their full name into the quote or enquiry form. The full name is kept as
 typed, for the homeowner and the PickASparky team. Installers only ever see the first name:

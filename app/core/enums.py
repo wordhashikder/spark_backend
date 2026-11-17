@@ -1,4 +1,6 @@
-"""Enumerations shared by the models, schemas and emails, with their human labels."""
+"""
+Enumerations shared by the models, schemas and emails, with their human labels.
+"""
 
 from enum import StrEnum
 from typing import Self

@@ -1,4 +1,6 @@
-"""The home page."""
+"""
+The home page.
+"""
 
 from app.content.fields import (
     Document,

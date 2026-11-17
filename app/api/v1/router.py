@@ -1,4 +1,6 @@
-"""The `/api/v1` router."""
+"""
+The `/api/v1` router.
+"""
 
 from fastapi import APIRouter
 

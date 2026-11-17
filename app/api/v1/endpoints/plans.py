@@ -1,4 +1,6 @@
-"""The public plan catalogue (pricing page, sign-up and upgrade screens)."""
+"""
+The public plan catalogue (pricing page, sign-up and upgrade screens).
+"""
 
 from fastapi import APIRouter, Response
 

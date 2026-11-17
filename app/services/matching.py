@@ -1,4 +1,6 @@
-"""Matching quote requests to installers by coverage, plan and distance."""
+"""
+Matching quote requests to installers by coverage, plan and distance.
+"""
 
 import uuid
 

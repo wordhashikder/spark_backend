@@ -1,4 +1,6 @@
-"""Quote requests: creation, matching and the emails that follow."""
+"""
+Quote requests: creation, matching and the emails that follow.
+"""
 
 import logging
 import secrets

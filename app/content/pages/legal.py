@@ -1,4 +1,5 @@
-"""Policy pages: Privacy, Terms & Conditions, Cookies.
+"""
+Policy pages: Privacy, Terms & Conditions, Cookies.
 
 Each is a list of sections with a heading and a Markdown body, like the
 policy editors of other back offices: add, reorder or remove sections freely.

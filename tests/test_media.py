@@ -145,7 +145,8 @@ async def test_a_dry_run_changes_nothing(db: AsyncSession) -> None:
 async def test_blog_covers_and_showcase_installer_images_move_too(db: AsyncSession) -> None:
     await seeding.seed_locations(db)
     await seeding.seed_blog(db)
-    await seeding.seed_demo(db)
+    await seeding.insert_showcase(db)
+    await db.commit()
     storage = FakeStorage()
 
     report = await media.migrate_bundled_media(db, storage, FakeSource())

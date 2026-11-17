@@ -1,4 +1,5 @@
-"""Claiming a listing: a business takes over the free listing created for it.
+"""
+Claiming a listing: a business takes over the free listing created for it.
 
 Imported listings have no account. The business proves it owns a listing by following a
 link sent to the email address on file for it (`installers.contact_email`), then sets a

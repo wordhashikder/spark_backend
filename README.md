@@ -1,6 +1,6 @@
 # PickASparky API
 
-The backend for [PickASparky](https://pickasparky.co.uk), a UK marketplace that matches
+The backend for [PickASparky](https://www.pickasparky.com), a UK marketplace that matches
 homeowners with vetted EV charger installers. One FastAPI service powers the public
 website, the Dashboard (installer and team back office) and the homeowner's *My Quotes*
 area.
@@ -46,15 +46,16 @@ EOF
 
 uv run alembic upgrade head               # create / update the schema
 uv run python -m app.cli seed-locations   # reference data (towns and regions)
-uv run python -m app.cli seed-content     # blog articles, directory listings, showcase data
-uv run python -m app.cli seed-demo        # optional demo accounts (development only)
+uv run python -m app.cli seed-content     # the 193 installer listings (plus sample blog posts and showcase profiles in development)
+uv run python -m app.cli seed-admin       # the administrator named by ADMIN_EMAIL and ADMIN_PASSWORD
 uv run uvicorn app.main:app --reload      # http://localhost:8000
 ```
 
 - Interactive API docs: <http://localhost:8000/docs> (off in production unless `DOCS_ENABLED=true`).
 - Liveness: `GET /health`. Readiness (checks the database): `GET /health/ready`.
 - API root: `/api/v1`.
-- Create a real admin account with `uv run python -m app.cli create-admin`.
+- Sign-in to the Dashboard: the administrator from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see
+  [What a new database contains](#what-a-new-database-contains)). There are no demo logins.
 
 Without SMTP settings no email leaves the server; check `uv run python -m app.cli test-email you@example.com`
 once SMTP is configured.
@@ -88,7 +89,24 @@ A blank value (`KEY=`) means "not set".
 | `POSTCODES_API_URL` | | Geocoding service (default `https://api.postcodes.io`) |
 | `MAX_QUOTE_MATCHES` | | Default for how many installers may respond to a request (1 to 20, default 5; editable in Settings) |
 | `QUOTE_RECOVERY_INTERVAL_SECONDS`, `QUOTE_RECOVERY_BATCH` | | How often (60) and how many (25) waiting requests are retried when the geocoder was down |
-| `SEED_SHOWCASE` | | Load the illustrative showcase profiles in production (staging demos only) |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | first start | The one administrator, created on start-up if that email has no account. An existing account is never changed, so remove `ADMIN_PASSWORD` after the first start. The password needs 10 to 128 characters with a letter and a digit |
+
+## What a new database contains
+
+On every start (`docker-entrypoint.sh`) the API applies the migrations and then runs
+`seed-locations`, `seed-content` and `seed-admin`. All three are safe to repeat. A production
+database ends up with exactly this and nothing else:
+
+| Data | Source | Notes |
+|---|---|---|
+| 34 locations | `app/data/locations.json` | Towns, regions and the directory layout; always follows the file |
+| 193 installers | `app/data/listings.json` (the client's `EV_installers.xlsx`, rows marked *Valid*) | Approved, public, unclaimed listings on the Free plan; a business claims its profile through its email address. Applied once (batch `directory-listings-2026-10`), so later edits or deletions are kept |
+| 1 administrator | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Verified, role *owner*. Created only when no account with that email exists |
+| Plans | migration `0011` | The default plan catalogue, edited afterwards in the Dashboard |
+
+Outside production `seed-content` also adds six sample blog articles and the showcase profiles
+with sample reviews (`app/data/blog.json`, `app/data/demo.json`) so the website can be built with
+content; they are refused when `ENVIRONMENT=production`. There are no demo accounts anywhere.
 
 ## When the postcode service is down
 
@@ -124,9 +142,9 @@ Operational commands: `uv run python -m app.cli --help`
 | Command | Purpose |
 |---|---|
 | `seed-locations` | Upsert towns and regions (safe to repeat) |
-| `seed-content` | Add content batches not added yet: blog, directory listings, showcase installers outside production |
-| `seed-demo [--purge]` | Demo accounts and data (never in production) |
-| `create-admin` | Create a verified admin account |
+| `seed-content` | Add content batches not added yet: the directory listings (and, outside production, sample blog articles and showcase installers) |
+| `seed-admin` | Create the administrator from `ADMIN_EMAIL` / `ADMIN_PASSWORD` unless it exists; never changes an existing account |
+| `create-admin` | Create a verified admin account by hand (prompts for email and password) |
 | `test-email <to>` | Send one test email and print the exact SMTP error, if any |
 | `location-image <slug> <file>` | Upload a photo for a location page |
 | `migrate-media` | Upload bundled website images to Cloudinary |

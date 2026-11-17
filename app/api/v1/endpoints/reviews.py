@@ -1,4 +1,6 @@
-"""Featured reviews and invitation-based review submission."""
+"""
+Featured reviews and invitation-based review submission.
+"""
 
 from typing import Annotated
 

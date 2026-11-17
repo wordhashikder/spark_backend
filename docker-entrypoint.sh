@@ -1,17 +1,15 @@
 #!/bin/sh
-# Apply migrations and reference data, then start the API.
 set -e
 
 alembic upgrade head
 python -m app.cli seed-locations
 
-# Content batches (blog articles, the imported installer directory listings and,
-# where allowed, the showcase installers). Each batch is added once, ever: what the
-# admin edits or deletes afterwards is never re-added. Safe with several replicas.
 python -m app.cli seed-content
 
-# The API runs behind Coolify's Traefik proxy on a private network, so the
-# forwarded headers are trusted.
+# The one administrator (ADMIN_EMAIL / ADMIN_PASSWORD). A mistake here is reported but must
+# never keep the API from starting; fix the variables and redeploy.
+python -m app.cli seed-admin || echo "WARNING: the administrator was not created (see above)." >&2
+
 exec uvicorn app.main:app \
     --host 0.0.0.0 \
     --port 8000 \

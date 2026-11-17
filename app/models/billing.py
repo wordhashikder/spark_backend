@@ -1,4 +1,6 @@
-"""Stripe bookkeeping: handled webhook events, invoices (payment history) and plan activity."""
+"""
+Stripe bookkeeping: handled webhook events, invoices (payment history) and plan activity.
+"""
 
 import uuid
 from datetime import datetime

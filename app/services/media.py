@@ -1,4 +1,5 @@
-"""Move the images that ship with the website into Cloudinary.
+"""
+Move the images that ship with the website into Cloudinary.
 
 The seed data (town photos, blog covers, the showcase installers' logos and galleries) points
 at files bundled with the website (`/images/...`). In production every image must live in

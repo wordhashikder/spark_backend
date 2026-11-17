@@ -1,4 +1,5 @@
-"""The homeowner's private conversation page: read, reply, accept or decline a quote.
+"""
+The homeowner's private conversation page: read, reply, accept or decline a quote.
 
 Homeowners need no account: the emailed link carries a signed token. The token travels in
 the request body (never the URL), so it does not end up in access logs.

@@ -1,4 +1,6 @@
-"""Templates and journeys: blog listing, the quote form page and every location page."""
+"""
+Templates and journeys: blog listing, the quote form page and every location page.
+"""
 
 from app.content.fields import (
     Document,

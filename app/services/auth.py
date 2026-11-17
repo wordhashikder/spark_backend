@@ -1,4 +1,6 @@
-"""Account use cases: registration, email verification, sessions and password reset."""
+"""
+Account use cases: registration, email verification, sessions and password reset.
+"""
 
 import logging
 import uuid

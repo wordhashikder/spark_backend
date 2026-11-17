@@ -1,4 +1,6 @@
-"""The PickASparky team (admin accounts), invitations and the role matrix."""
+"""
+The PickASparky team (admin accounts), invitations and the role matrix.
+"""
 
 import uuid
 from datetime import datetime

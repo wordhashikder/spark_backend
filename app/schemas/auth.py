@@ -1,4 +1,6 @@
-"""Authentication request and response bodies."""
+"""
+Authentication request and response bodies.
+"""
 
 import uuid
 from typing import Annotated, Literal

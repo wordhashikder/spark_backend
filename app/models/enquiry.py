@@ -1,8 +1,11 @@
-"""Enquiries sent from the "Request a Quote" form on an installer's profile."""
+"""
+Enquiries sent from the "Request a Quote" form on an installer's profile.
+"""
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, Text, true
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -25,5 +28,7 @@ class InstallerEnquiry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # True when the installer was emailed the request (Pro and Premium plans). Requests to
     # Free-plan (listed-only) installers go to the PickASparky team instead.
     sent_to_installer: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # Set when the team archives the enquiry: hidden from the Profile enquiries list, kept.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     installer: Mapped[Installer] = relationship(lazy="raise")

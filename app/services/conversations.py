@@ -1,4 +1,5 @@
-"""In-app quotes and messages between an installer and a homeowner, kept as history.
+"""
+In-app quotes and messages between an installer and a homeowner, kept as history.
 
 A conversation is opened by the installer from a lead or a direct enquiry. Each new
 message or quote is stored, then the other side is emailed: the homeowner gets a private

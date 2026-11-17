@@ -1,4 +1,6 @@
-"""Contact form request body."""
+"""
+Contact form request body.
+"""
 
 from typing import Annotated
 

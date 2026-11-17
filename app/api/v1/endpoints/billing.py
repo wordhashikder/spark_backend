@@ -1,4 +1,6 @@
-"""The installer's subscription: plan changes, cancellation, history, and the Stripe webhook."""
+"""
+The installer's subscription: plan changes, cancellation, history, and the Stripe webhook.
+"""
 
 from typing import Annotated
 

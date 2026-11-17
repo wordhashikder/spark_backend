@@ -1,4 +1,6 @@
-"""Image validation and storage (Cloudinary), behind an interface the tests replace."""
+"""
+Image validation and storage (Cloudinary), behind an interface the tests replace.
+"""
 
 import logging
 from dataclasses import dataclass

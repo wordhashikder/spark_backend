@@ -1,4 +1,5 @@
-"""The plan catalogue: keeping workers in step with it, the Dashboard's CRUD, Stripe sync.
+"""
+The plan catalogue: keeping workers in step with it, the Dashboard's CRUD, Stripe sync.
 
 Each plan with a price has a Stripe product, and each price a Stripe price. They are created
 and updated from here (never configured by hand) whenever Stripe is set up; without Stripe

@@ -1,4 +1,5 @@
-"""Back-office endpoints for the PickASparky team.
+"""
+Back-office endpoints for the PickASparky team.
 
 Every route checks the signed-in team member's staff role against the role matrix (see
 `require_admin_access` and `app/core/permissions.py`). Changes that show on the public
@@ -506,6 +507,7 @@ async def list_quotes(
     status: QuoteStatus | None = None,
     stage: lead_stats.Stage | None = None,
     waiting: bool = False,
+    archived: bool = False,
     q: SearchQuery = None,
 ) -> Paginated[AdminQuote]:
     found, total = await admin.list_quotes(
@@ -513,6 +515,7 @@ async def list_quotes(
         status=status,
         stage=stage,
         waiting=waiting,
+        archived=archived,
         search=q,
         offset=page.offset,
         limit=page.page_size,
@@ -558,6 +561,24 @@ async def get_quote(
     )
 
 
+@router.post("/quotes/{quote_id}/archive")
+async def archive_quote(
+    quote_id: uuid.UUID, session: SessionDep, platform_settings: PlatformSettingsDep
+) -> AdminQuote:
+    """Hide a quote request from the lists and counts but keep it (it can be restored)."""
+    await admin.set_quote_archived(session, quote_id, archived=True)
+    return await get_quote(quote_id, session, platform_settings)
+
+
+@router.post("/quotes/{quote_id}/restore")
+async def restore_quote(
+    quote_id: uuid.UUID, session: SessionDep, platform_settings: PlatformSettingsDep
+) -> AdminQuote:
+    """Bring an archived quote request back into the lists."""
+    await admin.set_quote_archived(session, quote_id, archived=False)
+    return await get_quote(quote_id, session, platform_settings)
+
+
 @router.get("/quotes/{quote_id}/matches")
 async def list_quote_matches(quote_id: uuid.UUID, session: SessionDep) -> list[AdminQuoteMatch]:
     """The installers a quote request was sent to, and how far each has got."""
@@ -592,14 +613,34 @@ async def assign_quote(
 
 
 @router.get("/enquiries")
-async def list_enquiries(session: SessionDep, page: PageDep) -> Paginated[AdminEnquiry]:
-    """Direct requests sent to installers from their profile pages."""
-    found, total = await enquiries.list_all(session, offset=page.offset, limit=page.page_size)
+async def list_enquiries(
+    session: SessionDep, page: PageDep, archived: bool = False
+) -> Paginated[AdminEnquiry]:
+    """Direct requests sent to installers from their profile pages (or the archived ones)."""
+    found, total = await enquiries.list_all(
+        session, offset=page.offset, limit=page.page_size, archived=archived
+    )
     return Paginated.build(
         [AdminEnquiry.from_enquiry(enquiry) for enquiry in found],
         total=total,
         page=page.page,
         page_size=page.page_size,
+    )
+
+
+@router.post("/enquiries/{enquiry_id}/archive")
+async def archive_enquiry(enquiry_id: uuid.UUID, session: SessionDep) -> AdminEnquiry:
+    """Hide an enquiry from the list but keep it (it can be restored)."""
+    return AdminEnquiry.from_enquiry(
+        await enquiries.set_archived(session, enquiry_id, archived=True)
+    )
+
+
+@router.post("/enquiries/{enquiry_id}/restore")
+async def restore_enquiry(enquiry_id: uuid.UUID, session: SessionDep) -> AdminEnquiry:
+    """Bring an archived enquiry back into the list."""
+    return AdminEnquiry.from_enquiry(
+        await enquiries.set_archived(session, enquiry_id, archived=False)
     )
 
 

@@ -1,4 +1,6 @@
-"""Documents the back office edits: platform settings, page content and the role matrix."""
+"""
+Documents the back office edits: platform settings, page content and the role matrix.
+"""
 
 import uuid
 from datetime import datetime

@@ -1,4 +1,6 @@
-"""Installer businesses, their accreditations and gallery photos."""
+"""
+Installer businesses, their accreditations and gallery photos.
+"""
 
 import uuid
 from datetime import datetime

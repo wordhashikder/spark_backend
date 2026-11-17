@@ -1,4 +1,6 @@
-"""Membership plans: the public catalogue and the Dashboard's plan manager."""
+"""
+Membership plans: the public catalogue and the Dashboard's plan manager.
+"""
 
 from datetime import datetime
 from typing import Annotated, Self

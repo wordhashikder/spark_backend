@@ -1,4 +1,6 @@
-"""The customer's own view: their requests, the quotes received and their messages."""
+"""
+The customer's own view: their requests, the quotes received and their messages.
+"""
 
 import uuid
 from datetime import date, datetime

@@ -1,4 +1,6 @@
-"""Per-client rate limiting built on `limits` (in-memory by default, Redis when configured)."""
+"""
+Per-client rate limiting built on `limits` (in-memory by default, Redis when configured).
+"""
 
 import hmac
 import ipaddress

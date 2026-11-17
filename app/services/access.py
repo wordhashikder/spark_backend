@@ -1,4 +1,6 @@
-"""Which back-office modules a team member's staff role may use (see `core/permissions.py`)."""
+"""
+Which back-office modules a team member's staff role may use (see `core/permissions.py`).
+"""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

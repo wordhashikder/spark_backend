@@ -1,4 +1,6 @@
-"""Async SQLAlchemy engine and the per-request session dependency."""
+"""
+Async SQLAlchemy engine and the per-request session dependency.
+"""
 
 from collections.abc import AsyncIterator
 

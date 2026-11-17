@@ -1,4 +1,6 @@
-"""Quote request and lead bodies."""
+"""
+Quote request and lead bodies.
+"""
 
 import uuid
 from datetime import datetime

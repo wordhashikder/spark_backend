@@ -1,4 +1,6 @@
-"""The blog: public listing and articles, and the admin's writing, publishing and covers."""
+"""
+The blog: public listing and articles, and the admin's writing, publishing and covers.
+"""
 
 import math
 import re

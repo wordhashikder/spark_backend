@@ -1,4 +1,5 @@
-"""Adding many listings at once from a CSV file (Installers → Import CSV).
+"""
+Adding many listings at once from a CSV file (Installers → Import CSV).
 
 The file needs a header row. Required columns: `business_name`, `contact_email`, `phone`,
 `postcode`. Optional: `contact_name`, `description`, `accreditations` (separated by `;`

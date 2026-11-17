@@ -1,4 +1,6 @@
-"""Shared request/response building blocks and validated field types."""
+"""
+Shared request/response building blocks and validated field types.
+"""
 
 import math
 import re

@@ -1,4 +1,6 @@
-"""Blog post bodies: the public listing and article, and the admin's create/update requests."""
+"""
+Blog post bodies: the public listing and article, and the admin's create/update requests.
+"""
 
 import uuid
 from datetime import datetime

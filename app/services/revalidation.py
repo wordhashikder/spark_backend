@@ -1,4 +1,5 @@
-"""Tell the website to refresh cached pages after the back office changes content.
+"""
+Tell the website to refresh cached pages after the back office changes content.
 
 The website caches API responses by tag (`content:home`, `locations`, `blog`...). After an
 edit the API calls the website's `/api/revalidate` route with the shared

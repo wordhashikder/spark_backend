@@ -1,4 +1,5 @@
-"""Editable website content: reading, saving, resetting and restoring page content.
+"""
+Editable website content: reading, saving, resetting and restoring page content.
 
 Only pages the admin has saved have a `site_content` row; every other page serves its
 original wording from the registry (`app/content/`). Each save, reset and restore adds a

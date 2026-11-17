@@ -1,4 +1,5 @@
-"""The PickASparky team: who may do what in the back office, invitations and the matrix.
+"""
+The PickASparky team: who may do what in the back office, invitations and the matrix.
 
 Team members are `admin` accounts with a staff role. They join by invitation: the invite
 creates the account (unverified, with an unusable password) and emails a single-use link;

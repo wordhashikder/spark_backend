@@ -1,4 +1,6 @@
-"""Installer request and response bodies, including the plan gating of public profiles."""
+"""
+Installer request and response bodies, including the plan gating of public profiles.
+"""
 
 import re
 import uuid

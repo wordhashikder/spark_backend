@@ -1,10 +1,15 @@
-"""Reference data, content and the development-only demo accounts.
+"""
+Reference data, content and the administrator account.
 
-- Locations are upserted on every start-up (`seed-locations`).
-- Content (blog articles, the client's directory of EV installers, showcase profiles) is
-  applied in named batches (`seed-content`, also on every start-up). Each batch is inserted
-  once and recorded in `seed_batches`, so later edits or deletions by the admin are kept.
-- Demo login accounts (`seed-demo`) exist only outside production.
+What a production database contains after start-up, and nothing else:
+
+- The locations (`seed-locations`, upserted on every start-up).
+- The client's 193 EV installers as approved, unclaimed listings (`seed-content`, applied
+  once and recorded in `seed_batches`, so later edits or deletions by the admin are kept).
+- The one administrator, from ADMIN_EMAIL and ADMIN_PASSWORD (`seed-admin`).
+
+Outside production, `seed-content` also adds sample blog articles and showcase profiles with
+reviews, for developing the website. There are no demo logins anywhere.
 """
 
 import json
@@ -13,8 +18,9 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import case, delete, func, or_, select, text, update
+from sqlalchemy import case, delete, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
@@ -47,13 +53,6 @@ from app.services import blog, installers, profiles, reviews
 from app.services.geocoding import GeocodedPostcode
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-DEMO_EMAIL_DOMAIN = "demo.pickasparky.test"
-DEMO_ADMIN_EMAIL = f"admin@{DEMO_EMAIL_DOMAIN}"
-DEMO_ADMIN_PASSWORD = "DemoAdmin123!"  # noqa: S105 - published demo credential, never production
-DEMO_INSTALLER_PASSWORD = "DemoPass123!"  # noqa: S105 - published demo credential, never production
-# The only showcase profiles that get a demo login (to try the installer Dashboard). Every
-# other showcase profile stays an unclaimed listing, like the imported directory.
-DEMO_ACTIVE_INSTALLERS = ("GreenCharge Electrical", "VoltWise Electrical", "ChargeRight Solutions")
 
 
 class SeedingError(Exception):
@@ -66,7 +65,7 @@ def _load(name: str) -> Any:
 
 def _require_non_production() -> None:
     if get_settings().is_production:
-        raise SeedingError("Demo data must never be loaded when ENVIRONMENT=production.")
+        raise SeedingError("Sample data must never be loaded when ENVIRONMENT=production.")
 
 
 # Photos shipped with the website (frontend/public/images/locations/). They belong to the
@@ -191,8 +190,10 @@ async def seed_blog(session: AsyncSession, *, only_if_empty: bool = False) -> in
     """Publish the sample posts that do not exist yet; returns how many were added.
 
     Safe to re-run: a post whose slug already exists (sample or admin-written) is left alone.
-    With `only_if_empty`, nothing is added once the blog has any post at all.
+    With `only_if_empty`, nothing is added once the blog has any post at all. Never in
+    production: the live blog holds only what the admin writes.
     """
+    _require_non_production()
     if only_if_empty and await session.scalar(select(BlogPost.id).limit(1)) is not None:
         return 0
     added = await _insert_blog_samples(session)
@@ -226,8 +227,25 @@ async def create_admin(session: AsyncSession, email: str, password: str) -> User
     return admin
 
 
+async def ensure_admin(session: AsyncSession, email: str, password: str) -> bool:
+    """Create the administrator unless an account with this email already exists.
+
+    Returns whether it was created. An existing account is never touched (not its password,
+    role or name), so this is safe on every start-up and when several containers start at
+    once.
+    """
+    try:
+        await create_admin(session, email, password)
+    except SeedingError:
+        return False
+    except IntegrityError:
+        await session.rollback()
+        return False
+    return True
+
+
 def demo_postcodes() -> list[GeocodedPostcode]:
-    """Demo postcodes resolved to their town's coordinates, for offline development."""
+    """Sample postcodes resolved to their town's coordinates, for offline development."""
     _require_non_production()
     by_slug = {entry["slug"]: entry for entry in _load("locations.json")}
     return [
@@ -321,9 +339,8 @@ async def insert_listings(session: AsyncSession) -> int:
 async def insert_showcase(session: AsyncSession) -> int:
     """The showcase profiles and reviews from the design (`data/demo.json`), unclaimed.
 
-    Outside production these always load. In production they load only with
-    SEED_SHOWCASE=true: the businesses and reviews are illustrative, and publishing
-    invented reviews as genuine is not allowed on a live consumer site. No commit.
+    Development only (see `CONTENT_BATCHES`): the businesses and reviews are illustrative, and
+    publishing invented reviews as genuine is not allowed on a live consumer site. No commit.
     """
     locations = await _locations_by_slug(session)
     known = await _existing_business_names(session)
@@ -443,18 +460,18 @@ async def enrich_listing_profiles(session: AsyncSession) -> int:
     return changed
 
 
-def _showcase_allowed() -> bool:
-    settings = get_settings()
-    return not settings.is_production or settings.seed_showcase
+def _samples_allowed() -> bool:
+    """Sample articles and showcase profiles are for development; a live site has none."""
+    return not get_settings().is_production
 
 
 ContentBatch = tuple[str, Callable[[AsyncSession], Awaitable[int]], Callable[[], bool]]
 
 # Applied in this order, each once. Never rename a batch that has shipped: add a new one.
 CONTENT_BATCHES: tuple[ContentBatch, ...] = (
-    ("blog-articles-2026-10", _insert_blog_samples, lambda: True),
+    ("blog-articles-2026-10", _insert_blog_samples, _samples_allowed),
     ("directory-listings-2026-10", insert_listings, lambda: True),
-    ("showcase-installers-2026-10", insert_showcase, _showcase_allowed),
+    ("showcase-installers-2026-10", insert_showcase, _samples_allowed),
     ("directory-profiles-2026-10b", enrich_listing_profiles, lambda: True),
 )
 _SEED_LOCK = 4_242_001  # pg_advisory_xact_lock key: one seeder at a time
@@ -475,60 +492,3 @@ async def seed_content(session: AsyncSession) -> list[tuple[str, int]]:
         await session.commit()
         applied.append((name, added))
     return applied
-
-
-# ---- Demo accounts (never production) ------------------------------------------------
-
-
-async def purge_demo(session: AsyncSession) -> int:
-    """Delete every demo account. Their listings stay, unclaimed again."""
-    _require_non_production()
-    demo_users = select(User.id).where(User.email.like(f"%@{DEMO_EMAIL_DOMAIN}"))
-    await session.execute(
-        update(Installer).where(Installer.user_id.in_(demo_users)).values(claimed_at=None)
-    )
-    result = await session.execute(
-        delete(User).where(User.email.like(f"%@{DEMO_EMAIL_DOMAIN}")).returning(User.id)
-    )
-    await session.commit()
-    return len(result.all())
-
-
-async def seed_demo(session: AsyncSession) -> int:
-    """Demo logins for development: the demo admin and an installer account for each of the
-    `DEMO_ACTIVE_INSTALLERS` (`<slug>@demo.pickasparky.test`). Every other showcase profile
-    is left unclaimed. Loads the showcase profiles if missing and can be re-run at any time.
-    Returns how many installer accounts were created."""
-    _require_non_production()
-    await purge_demo(session)
-    await insert_showcase(session)
-
-    now = utcnow()
-    session.add(
-        User(
-            email=DEMO_ADMIN_EMAIL,
-            password_hash=await security.hash_password(DEMO_ADMIN_PASSWORD),
-            role=Role.ADMIN,
-            staff_role=StaffRole.OWNER,
-            full_name="Demo Admin",
-            email_verified_at=now,
-        )
-    )
-    showcase = await session.scalars(
-        select(Installer).where(
-            Installer.business_name.in_(DEMO_ACTIVE_INSTALLERS), Installer.user_id.is_(None)
-        )
-    )
-    password_hash = await security.hash_password(DEMO_INSTALLER_PASSWORD)
-    claimed = 0
-    for installer in showcase:
-        installer.user = User(
-            email=f"{installer.slug}@{DEMO_EMAIL_DOMAIN}",
-            password_hash=password_hash,
-            role=Role.INSTALLER,
-            email_verified_at=now,
-        )
-        installer.claimed_at = now
-        claimed += 1
-    await session.commit()
-    return claimed

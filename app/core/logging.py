@@ -1,4 +1,6 @@
-"""Logging configuration and the request-id / access-log middleware."""
+"""
+Logging configuration and the request-id / access-log middleware.
+"""
 
 import json
 import logging

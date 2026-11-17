@@ -1,4 +1,6 @@
-"""Homeowners as customers: a record per email address, signed in by emailed magic links."""
+"""
+Homeowners as customers: a record per email address, signed in by emailed magic links.
+"""
 
 import uuid
 from datetime import datetime

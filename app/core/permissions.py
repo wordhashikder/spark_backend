@@ -1,4 +1,5 @@
-"""The back office's modules and which staff roles may use them (the role matrix).
+"""
+The back office's modules and which staff roles may use them (the role matrix).
 
 Every admin API route belongs to a module, worked out from its path, and the admin router
 checks the signed-in team member's role against the matrix before the route runs (see

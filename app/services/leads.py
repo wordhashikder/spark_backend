@@ -1,4 +1,6 @@
-"""An installer's leads: listing them and tracking their progress."""
+"""
+An installer's leads: listing them and tracking their progress.
+"""
 
 import uuid
 

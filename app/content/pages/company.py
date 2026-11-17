@@ -1,4 +1,6 @@
-"""Company pages: Contact, About and How it works."""
+"""
+Company pages: Contact, About and How it works.
+"""
 
 from app.content.fields import (
     Document,

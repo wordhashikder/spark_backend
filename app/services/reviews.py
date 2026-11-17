@@ -1,4 +1,6 @@
-"""Reviews: public listings, invitation-based submission and rating upkeep."""
+"""
+Reviews: public listings, invitation-based submission and rating upkeep.
+"""
 
 import uuid
 

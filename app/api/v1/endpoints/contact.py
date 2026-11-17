@@ -1,4 +1,6 @@
-"""Public contact form."""
+"""
+Public contact form.
+"""
 
 from fastapi import APIRouter, Depends, status
 

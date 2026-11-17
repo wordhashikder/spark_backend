@@ -1,4 +1,5 @@
-"""In-app conversations between an installer and a homeowner: messages and priced quotes.
+"""
+In-app conversations between an installer and a homeowner: messages and priced quotes.
 
 A conversation belongs to one job: either a lead (a quote request matched to the installer)
 or a direct enquiry sent from the installer's profile. Every message and quote is kept as

@@ -1,4 +1,6 @@
-"""Messages sent through the public contact form."""
+"""
+Messages sent through the public contact form.
+"""
 
 from sqlalchemy import Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column

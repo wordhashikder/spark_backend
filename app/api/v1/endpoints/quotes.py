@@ -1,4 +1,6 @@
-"""Public quote requests."""
+"""
+Public quote requests.
+"""
 
 from fastapi import APIRouter, Depends, status
 

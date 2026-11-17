@@ -1,4 +1,5 @@
-"""The plan catalogue as the rest of the app sees it.
+"""
+The plan catalogue as the rest of the app sees it.
 
 Plans live in the database (Dashboard > Plans & billing). Code that decides what an
 installer may do, and the SQL that ranks installers, cannot await a query on every call, so

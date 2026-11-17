@@ -1,4 +1,6 @@
-"""The back office's Overview, sidebar badges and global search."""
+"""
+The back office's Overview, sidebar badges and global search.
+"""
 
 from datetime import date, timedelta
 
@@ -157,6 +159,7 @@ async def overview(session: AsyncSession, *, days: int, max_installers: int) -> 
             lead_stats.quotes_sent(),
             lead_stats.stage(),
         )
+        .where(QuoteRequest.archived_at.is_(None))
         .order_by(QuoteRequest.created_at.desc(), QuoteRequest.id.desc())
         .limit(_RECENT_LEADS)
     )
@@ -203,12 +206,18 @@ async def overview(session: AsyncSession, *, days: int, max_installers: int) -> 
             )
             for quote, matched, sent, current_stage in recent_rows
         ],
-        held_leads=await _count(session, QuoteRequest, QuoteRequest.status == QuoteStatus.NEW),
+        held_leads=await _count(
+            session,
+            QuoteRequest,
+            QuoteRequest.status == QuoteStatus.NEW,
+            QuoteRequest.archived_at.is_(None),
+        ),
         unmatched_leads=await _count(
             session,
             QuoteRequest,
             QuoteRequest.status == QuoteStatus.UNMATCHED,
             QuoteRequest.created_at >= since,
+            QuoteRequest.archived_at.is_(None),
         ),
         installers_pending=await _count(
             session, Installer, Installer.status == InstallerStatus.PENDING
@@ -219,6 +228,7 @@ async def overview(session: AsyncSession, *, days: int, max_installers: int) -> 
             InstallerEnquiry,
             InstallerEnquiry.sent_to_installer.is_(False),
             InstallerEnquiry.created_at >= since,
+            InstallerEnquiry.archived_at.is_(None),
         ),
         contact_messages_recent=await _count(
             session, ContactMessage, ContactMessage.created_at >= since

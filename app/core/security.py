@@ -1,4 +1,6 @@
-"""Password hashing, JWT signing and opaque-token helpers."""
+"""
+Password hashing, JWT signing and opaque-token helpers.
+"""
 
 import hashlib
 import hmac

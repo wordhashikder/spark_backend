@@ -1,4 +1,5 @@
-"""Every Stripe network call, behind a protocol so tests can stub them.
+"""
+Every Stripe network call, behind a protocol so tests can stub them.
 
 Methods take and return plain values or mappings (`to_dict()` of the Stripe object), so
 nothing outside this module depends on the SDK's types.

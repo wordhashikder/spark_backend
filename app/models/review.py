@@ -1,4 +1,6 @@
-"""Customer reviews of installers."""
+"""
+Customer reviews of installers.
+"""
 
 import uuid
 from datetime import datetime

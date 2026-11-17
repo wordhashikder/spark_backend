@@ -1,4 +1,6 @@
-"""Blog posts written and published by the admin."""
+"""
+Blog posts written and published by the admin.
+"""
 
 from datetime import datetime
 

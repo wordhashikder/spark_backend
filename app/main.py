@@ -1,4 +1,6 @@
-"""Application factory: middleware, exception handlers, routers and lifespan."""
+"""
+Application factory: middleware, exception handlers, routers and lifespan.
+"""
 
 import asyncio
 import logging

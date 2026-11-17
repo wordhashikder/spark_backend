@@ -1,4 +1,6 @@
-"""Great-circle distance helpers, in Python and as SQL expressions (no PostGIS needed)."""
+"""
+Great-circle distance helpers, in Python and as SQL expressions (no PostGIS needed).
+"""
 
 import math
 

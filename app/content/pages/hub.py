@@ -1,4 +1,6 @@
-"""The EV charger installers hub (/uk/ev-charger-installers/)."""
+"""
+The EV charger installers hub (/uk/ev-charger-installers/).
+"""
 
 from app.content.fields import (
     Document,

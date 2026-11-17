@@ -1,4 +1,5 @@
-"""Public website content: the text of each page, and the organisation's details.
+"""
+Public website content: the text of each page, and the organisation's details.
 
 The website caches these responses and the Dashboard refreshes the cache whenever the team
 saves, so edits appear within seconds without a deploy.

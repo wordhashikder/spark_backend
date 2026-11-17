@@ -1,4 +1,5 @@
-"""Platform-wide settings the admin edits (Settings): matching, notifications, organisation.
+"""
+Platform-wide settings the admin edits (Settings): matching, notifications, organisation.
 
 Defaults come from the environment (`MAX_QUOTE_MATCHES`, `SUPPORT_EMAIL`...), so a fresh
 install behaves exactly as configured; once an admin saves Settings, the stored values
@@ -45,7 +46,7 @@ class Organisation(BaseModel):
     platform_name: str = "PickASparky"
     # Public support address: shown on the website, used as the reply address in emails
     # and where team alerts are sent.
-    support_email: str = "hello@pickasparky.co.uk"
+    support_email: str = "notifications@pickasparky.com"
 
 
 class PlatformSettings(BaseModel):

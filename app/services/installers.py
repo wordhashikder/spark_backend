@@ -1,4 +1,6 @@
-"""Installer profiles: public listing queries, the installer's own profile and its media."""
+"""
+Installer profiles: public listing queries, the installer's own profile and its media.
+"""
 
 import re
 import unicodedata

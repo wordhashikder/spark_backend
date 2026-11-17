@@ -1,4 +1,5 @@
-"""Public profile content for listings PickASparky added from a directory.
+"""
+Public profile content for listings PickASparky added from a directory.
 
 A listing from the client's directory only has a name, a phone number, an email and an
 address. This builds the rest of a useful profile page from facts that are true of every

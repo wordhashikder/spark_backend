@@ -1,4 +1,6 @@
-"""Locations and postcode lookup."""
+"""
+Locations and postcode lookup.
+"""
 
 from fastapi import APIRouter, Depends
 

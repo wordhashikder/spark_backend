@@ -1,4 +1,6 @@
-"""Membership plans and their prices: the catalogue the Dashboard manages."""
+"""
+Membership plans and their prices: the catalogue the Dashboard manages.
+"""
 
 from sqlalchemy import (
     Boolean,

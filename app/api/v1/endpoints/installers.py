@@ -1,5 +1,7 @@
-"""Installer directory (public), direct enquiries, and the signed-in installer's own profile,
-media, leads and enquiries."""
+"""
+Installer directory (public), direct enquiries, and the signed-in installer's own profile,
+media, leads and enquiries.
+"""
 
 import uuid
 from typing import Annotated

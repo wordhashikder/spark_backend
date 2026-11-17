@@ -1,4 +1,6 @@
-"""Operational commands: `python -m app.cli <command>`."""
+"""
+Operational commands: `python -m app.cli <command>`.
+"""
 
 import argparse
 import asyncio
@@ -9,12 +11,13 @@ from pathlib import Path
 
 import aiosmtplib
 from pydantic import TypeAdapter, ValidationError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import SessionFactory, engine
 from app.core.exceptions import AppError
-from app.models import Location
+from app.models import Location, User
 from app.schemas.common import Email, Password
 from app.services import locations, media, seeding
 from app.services.storage import build_storage
@@ -27,19 +30,22 @@ def _build_parser() -> argparse.ArgumentParser:
     commands.add_parser("seed-locations", help="upsert the locations from app/data/locations.json")
     commands.add_parser(
         "seed-content",
-        help="add the content batches not added yet: blog articles, directory listings"
-        " and (outside production, or with SEED_SHOWCASE=true) the showcase installers",
+        help="add the content batches not added yet: the directory listings and, outside"
+        " production only, sample blog articles and showcase installers",
+    )
+    commands.add_parser(
+        "seed-admin",
+        help="create the administrator from ADMIN_EMAIL and ADMIN_PASSWORD unless that"
+        " account exists (an existing account is never changed)",
     )
 
     admin = commands.add_parser("create-admin", help="create a verified admin account")
     admin.add_argument("--email", help="admin email address (prompted for when omitted)")
     admin.add_argument("--password", help="admin password (prompted for when omitted)")
 
-    demo = commands.add_parser("seed-demo", help="load demo data (never in production)")
-    demo.add_argument("--purge", action="store_true", help="remove the demo data instead")
-
     blog = commands.add_parser(
-        "seed-blog", help="publish the sample blog posts from app/data/blog.json"
+        "seed-blog",
+        help="publish the sample blog posts from app/data/blog.json (never in production)",
     )
     blog_mode = blog.add_mutually_exclusive_group()
     blog_mode.add_argument("--purge", action="store_true", help="remove the sample posts instead")
@@ -78,17 +84,40 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _admin_credentials(args: argparse.Namespace) -> tuple[str, str]:
-    email = args.email or input("Admin email: ")
-    password = args.password or getpass.getpass("Admin password: ")
+_EMAIL = TypeAdapter(Email)
+_PASSWORD = TypeAdapter(Password)
+
+
+def _validated(adapter: TypeAdapter[str], value: str) -> str:
+    """`value` checked as an email or a password; the reasons are shown to the operator."""
     try:
-        return (
-            TypeAdapter(Email).validate_python(email),
-            TypeAdapter(Password).validate_python(password),
-        )
+        return adapter.validate_python(value)
     except ValidationError as exc:
         reasons = "; ".join(error["msg"] for error in exc.errors())
         raise seeding.SeedingError(reasons) from exc
+
+
+def _admin_credentials(args: argparse.Namespace) -> tuple[str, str]:
+    email = args.email or input("Admin email: ")
+    password = args.password or getpass.getpass("Admin password: ")
+    return _validated(_EMAIL, email), _validated(_PASSWORD, password)
+
+
+async def _seed_admin(session: AsyncSession) -> str:
+    """Create the administrator named in the environment; a no-op once it exists."""
+    settings = get_settings()
+    if not settings.admin_email:
+        return "ADMIN_EMAIL is not set: no administrator was created."
+    email = _validated(_EMAIL, settings.admin_email)
+    if await session.scalar(select(User.id).where(User.email == email)) is not None:
+        return f"Administrator {email} already exists; nothing changed."
+    if not settings.admin_password:
+        raise seeding.SeedingError(
+            f"Administrator {email} does not exist yet: set ADMIN_PASSWORD for the first start."
+        )
+    password = _validated(_PASSWORD, settings.admin_password)
+    created = await seeding.ensure_admin(session, email, password)
+    return f"Created administrator {email}." if created else f"Administrator {email} exists."
 
 
 async def _upload_location_image(session: AsyncSession, args: argparse.Namespace) -> Location:
@@ -202,11 +231,8 @@ async def _run(args: argparse.Namespace) -> str:
                     email, password = _admin_credentials(args)
                     admin = await seeding.create_admin(session, email, password)
                     return f"Created admin {admin.email}."
-                case "seed-demo" if args.purge:
-                    return f"Removed {await seeding.purge_demo(session)} demo accounts."
-                case "seed-demo":
-                    done = f"Seeded {await seeding.seed_demo(session)} demo installers."
-                    return await _seed_then_move_media(session, done)
+                case "seed-admin":
+                    return await _seed_admin(session)
                 case "seed-blog" if args.purge:
                     return f"Removed {await seeding.purge_blog(session)} sample blog posts."
                 case "seed-blog":

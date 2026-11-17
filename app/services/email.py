@@ -1,4 +1,5 @@
-"""Transactional email: Jinja2 templates rendered to multipart messages, sent over SMTP.
+"""
+Transactional email: Jinja2 templates rendered to multipart messages, sent over SMTP.
 
 Use cases build `Email` values; endpoints queue them on `BackgroundTasks` once the
 transaction has committed. Sending never raises into a request.

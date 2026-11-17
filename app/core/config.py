@@ -1,4 +1,6 @@
-"""Application settings, loaded from the environment (and a local `.env` file)."""
+"""
+Application settings, loaded from the environment (and a local `.env` file).
+"""
 
 from functools import lru_cache
 from typing import Annotated, Literal, Self
@@ -34,13 +36,16 @@ class Settings(BaseSettings):
     # Public URL of the Dashboard app (installer and admin back office), for email links.
     dashboard_url: str = "http://localhost:5173"
     # The Dashboard keeps its refresh token in an httpOnly cookie set by this API.
-    # "lax" works when the Dashboard and API share a site (e.g. *.pickasparky.co.uk);
+    # "lax" works when the Dashboard and API share a site (e.g. *.pickasparky.com);
     # use "none" only if they are on unrelated domains (requires HTTPS).
     session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     session_cookie_domain: str | None = None
     internal_api_key: str | None = None
-    # Load the illustrative showcase profiles and reviews in production (staging demos only).
-    seed_showcase: bool = False
+    # The one administrator, created on start-up when no account with this email exists
+    # yet (`python -m app.cli seed-admin`). An existing account is never changed, so the
+    # password can be removed from the environment after the first start.
+    admin_email: str | None = None
+    admin_password: str | None = None
     docs_enabled: bool | None = None
 
     access_token_expire_minutes: int = Field(default=15, ge=1)
@@ -57,9 +62,9 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_use_tls: bool = False
     smtp_start_tls: bool = True
-    email_from: str = "no-reply@pickasparky.co.uk"
+    email_from: str = "notifications@pickasparky.com"
     email_from_name: str = "PickASparky"
-    support_email: str = "hello@pickasparky.co.uk"
+    support_email: str = "notifications@pickasparky.com"
 
     cloudinary_cloud_name: str | None = None
     cloudinary_api_key: str | None = None
@@ -96,6 +101,8 @@ class Settings(BaseSettings):
         "cloudinary_api_secret",
         "stripe_secret_key",
         "stripe_webhook_secret",
+        "admin_email",
+        "admin_password",
         "docs_enabled",
         "session_cookie_domain",
         "frontend_internal_url",

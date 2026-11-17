@@ -1,10 +1,13 @@
-"""Enquiries sent from the "Request a Quote" form on an installer's profile.
+"""
+Enquiries sent from the "Request a Quote" form on an installer's profile.
 
 Every approved installer's profile has the form. Where the request goes depends on the
 plan: Pro and Premium installers receive it themselves (their plan includes enquiries);
 requests to Free-plan, listed-only installers go to the PickASparky team, who reply to
 the customer. The `accepts_direct_quotes` capability in `app/core/plans.py` decides.
 """
+
+import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +18,7 @@ from app.core.enums import InstallerStatus
 from app.core.exceptions import NotFoundError
 from app.core.plans import capabilities_for
 from app.models import Installer, InstallerEnquiry
+from app.models.base import utcnow
 from app.schemas.enquiry import EnquiryCreate
 from app.services import email as emails
 from app.services.email import Email
@@ -72,15 +76,46 @@ async def list_for_installer(
 
 
 async def list_all(
-    session: AsyncSession, *, offset: int, limit: int
+    session: AsyncSession, *, offset: int, limit: int, archived: bool = False
 ) -> tuple[list[InstallerEnquiry], int]:
-    """Every enquiry, newest first, with its installer (back office)."""
-    total = await session.scalar(select(func.count()).select_from(InstallerEnquiry))
+    """Enquiries, newest first, with their installer (back office).
+
+    The list shows the active enquiries; `archived` shows the archived ones instead.
+    """
+    column = InstallerEnquiry.archived_at
+    visible = column.is_not(None) if archived else column.is_(None)
+    total = await session.scalar(select(func.count()).select_from(InstallerEnquiry).where(visible))
     found = await session.scalars(
         select(InstallerEnquiry)
+        .where(visible)
         .options(joinedload(InstallerEnquiry.installer))
         .order_by(InstallerEnquiry.created_at.desc(), InstallerEnquiry.id.desc())
         .offset(offset)
         .limit(limit)
     )
     return list(found), total or 0
+
+
+async def set_archived(
+    session: AsyncSession, enquiry_id: uuid.UUID, *, archived: bool
+) -> InstallerEnquiry:
+    """Archive an enquiry (hide it from the list, keep it) or restore it (back office).
+
+    Only the back-office list changes: the installer's copy and the conversation are
+    untouched. Doing it twice is harmless.
+    """
+    enquiry = await session.scalar(
+        select(InstallerEnquiry)
+        .where(InstallerEnquiry.id == enquiry_id)
+        .options(joinedload(InstallerEnquiry.installer))
+        .with_for_update(of=InstallerEnquiry)
+    )
+    if enquiry is None:
+        raise NotFoundError("Enquiry not found.")
+    if archived and enquiry.archived_at is None:
+        enquiry.archived_at = utcnow()
+    elif not archived:
+        enquiry.archived_at = None
+    await session.commit()
+    await session.refresh(enquiry)
+    return enquiry

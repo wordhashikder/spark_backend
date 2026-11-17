@@ -1,4 +1,6 @@
-"""Postcode geocoding via postcodes.io, behind an interface the tests replace."""
+"""
+Postcode geocoding via postcodes.io, behind an interface the tests replace.
+"""
 
 import logging
 import re

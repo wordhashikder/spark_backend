@@ -1,4 +1,6 @@
-"""Towns and cities that have a landing page."""
+"""
+Towns and cities that have a landing page.
+"""
 
 from sqlalchemy import Boolean, Float, SmallInteger, String, Text, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column

@@ -1,4 +1,6 @@
-"""Guide pages: How we vet installers, Electrician accreditations, Electrical safety."""
+"""
+Guide pages: How we vet installers, Electrician accreditations, Electrical safety.
+"""
 
 from app.content.fields import (
     Document,

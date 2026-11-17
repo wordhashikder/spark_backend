@@ -1,4 +1,6 @@
-"""The public blog: listing, articles and related posts (published posts only)."""
+"""
+The public blog: listing, articles and related posts (published posts only).
+"""
 
 from typing import Annotated
 

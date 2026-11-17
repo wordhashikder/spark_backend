@@ -1,4 +1,6 @@
-"""Shared FastAPI dependencies: sessions, external services, authentication and pagination."""
+"""
+Shared FastAPI dependencies: sessions, external services, authentication and pagination.
+"""
 
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
@@ -231,6 +233,5 @@ async def get_current_customer(
     if credentials is None:
         raise NotAuthenticatedError("Please request a new link to sign in.", code="invalid_token")
     return await customers.authenticate(session, credentials.credentials)
-
 
 CurrentCustomerDep = Annotated[Customer, Depends(get_current_customer)]

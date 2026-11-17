@@ -1,4 +1,6 @@
-"""Application errors and the handlers that render the uniform error envelope."""
+"""
+Application errors and the handlers that render the uniform error envelope.
+"""
 
 from collections.abc import Mapping
 from http import HTTPStatus

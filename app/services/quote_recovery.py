@@ -1,4 +1,5 @@
-"""Quote requests that arrived while the postcode lookup (postcodes.io) was down.
+"""
+Quote requests that arrived while the postcode lookup (postcodes.io) was down.
 
 Such a request is stored in full with the status `PENDING_LOCATION` (see `quotes.create_quote`):
 it is not a verdict on the request, so it is never marked unmatched because of an outage.

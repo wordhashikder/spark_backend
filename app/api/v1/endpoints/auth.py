@@ -1,4 +1,5 @@
-"""Installer and admin authentication.
+"""
+Installer and admin authentication.
 
 Two ways to hold a session:
 - `/auth/login`, `/auth/refresh`, `/auth/logout`: tokens in the JSON body, for server-side

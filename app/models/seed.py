@@ -1,4 +1,6 @@
-"""Record of the content batches the seed has applied (see `services/seeding.py`)."""
+"""
+Record of the content batches the seed has applied (see `services/seeding.py`).
+"""
 
 from datetime import datetime
 

@@ -1,4 +1,6 @@
-"""Accounts and the tokens that authenticate them."""
+"""
+Accounts and the tokens that authenticate them.
+"""
 
 import uuid
 from datetime import datetime

@@ -1,4 +1,5 @@
-"""Subscriptions: checkout, plan changes, cancellation, payment history and Stripe webhooks.
+"""
+Subscriptions: checkout, plan changes, cancellation, payment history and Stripe webhooks.
 
 Plans and prices come from the database (`services/plans.py`); nothing here reads a price
 from configuration. Stripe is the source of truth for a subscription's state: every change

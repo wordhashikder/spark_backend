@@ -1,4 +1,5 @@
-"""Export every page's original wording: `python -m app.content [--output FILE]`.
+"""
+Export every page's original wording: `python -m app.content [--output FILE]`.
 
 The website bundles this JSON (`frontend/src/content/site-content.json`) so each page can
 still render if the API is unreachable while it builds or revalidates. Run it after

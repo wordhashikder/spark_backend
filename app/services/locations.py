@@ -1,4 +1,5 @@
-"""Location queries (listing with installer counts, the directory, nearest-location lookup)
+"""
+Location queries (listing with installer counts, the directory, nearest-location lookup)
 and the admin's management of location pages: adding them, drafts, content and photo.
 
 Draft locations (`is_published = false`) are invisible to the public site: lists, the

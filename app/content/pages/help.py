@@ -1,4 +1,6 @@
-"""FAQ and Join pages."""
+"""
+FAQ and Join pages.
+"""
 
 from app.content.fields import (
     Document,

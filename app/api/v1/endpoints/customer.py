@@ -1,4 +1,5 @@
-"""The customer's quote dashboard API.
+"""
+The customer's quote dashboard API.
 
 Customers have no password. A magic link, emailed with every quote request, is exchanged
 for a session token; the website keeps that token in an httpOnly cookie and sends it as a

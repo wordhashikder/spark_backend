@@ -1,4 +1,6 @@
-"""Security headers, request-size limits and the catch-all error boundary (plain ASGI)."""
+"""
+Security headers, request-size limits and the catch-all error boundary (plain ASGI).
+"""
 
 import logging
 

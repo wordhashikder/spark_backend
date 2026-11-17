@@ -1,4 +1,6 @@
-"""In-app messages and priced quotes between installers and homeowners."""
+"""
+In-app messages and priced quotes between installers and homeowners.
+"""
 
 import re
 import uuid

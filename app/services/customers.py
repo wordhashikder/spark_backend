@@ -1,4 +1,5 @@
-"""Customers: records created from quote requests, magic-link sign-in and their dashboard.
+"""
+Customers: records created from quote requests, magic-link sign-in and their dashboard.
 
 A customer never sets a password. Each quote request emails a magic link; opening it starts
 a session (an opaque token kept in an httpOnly cookie by the website), so later visits

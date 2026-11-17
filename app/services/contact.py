@@ -1,4 +1,6 @@
-"""Contact form submissions."""
+"""
+Contact form submissions.
+"""
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

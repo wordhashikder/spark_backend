@@ -1,4 +1,6 @@
-"""Site-wide content: footer, contact details, the shared directory and reviews blocks."""
+"""
+Site-wide content: footer, contact details, the shared directory and reviews blocks.
+"""
 
 from app.content.fields import Document, email, link, paragraph, section, text
 
@@ -36,7 +38,7 @@ SITE = Document(
             email(
                 "privacy_email",
                 "Privacy email",
-                "privacy@pickasparky.co.uk",
+                "notifications@pickasparky.com",
                 help="For data protection requests (Privacy Policy). The support email is set "
                 "in Settings › Organisation.",
             ),

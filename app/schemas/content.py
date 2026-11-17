@@ -1,4 +1,6 @@
-"""Editable website content as the website and the Dashboard see it."""
+"""
+Editable website content as the website and the Dashboard see it.
+"""
 
 import uuid
 from datetime import datetime

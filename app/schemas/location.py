@@ -1,4 +1,6 @@
-"""Location and postcode lookup responses, and the admin's location content edits."""
+"""
+Location and postcode lookup responses, and the admin's location content edits.
+"""
 
 from datetime import datetime
 from typing import Annotated, Self

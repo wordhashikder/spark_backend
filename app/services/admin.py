@@ -1,5 +1,7 @@
-"""Back-office use cases: installers (moderation, adding, editing), reviews, quote requests
-(progress, choosing installers for held requests) and the platform's configuration status."""
+"""
+Back-office use cases: installers (moderation, adding, editing), reviews, quote requests
+(progress, choosing installers for held requests) and the platform's configuration status.
+"""
 
 import uuid
 from collections.abc import Sequence
@@ -378,10 +380,14 @@ async def list_quotes(
     status: QuoteStatus | None = None,
     stage: lead_stats.Stage | None = None,
     waiting: bool = False,
+    archived: bool = False,
     search: str | None = None,
 ) -> tuple[list[tuple[QuoteRequest, int, int, str]], int]:
-    """Quote requests, newest first, each with (installers matched, quotes sent, stage)."""
-    filters: list[ColumnElement[bool]] = []
+    """Quote requests, newest first, each with (installers matched, quotes sent, stage).
+
+    The list shows the active requests; `archived` shows the archived ones instead.
+    """
+    filters: list[ColumnElement[bool]] = [_archived_filter(archived)]
     if status:
         filters.append(QuoteRequest.status == status)
     if stage:
@@ -417,9 +423,22 @@ async def list_quotes(
     )
 
 
+def _archived_filter(archived: bool) -> ColumnElement[bool]:
+    column = QuoteRequest.archived_at
+    return column.is_not(None) if archived else column.is_(None)
+
+
 async def stage_counts(session: AsyncSession) -> dict[str, int]:
-    """How many requests are at each stage (the Leads & Quotes filter chips)."""
-    stages = select(lead_stats.stage().label("stage")).select_from(QuoteRequest).subquery()
+    """How many requests are at each stage (the Leads & Quotes filter chips).
+
+    Archived requests are left out of every stage and counted on their own.
+    """
+    stages = (
+        select(lead_stats.stage().label("stage"))
+        .select_from(QuoteRequest)
+        .where(_archived_filter(False))
+        .subquery()
+    )
     rows = await session.execute(select(stages.c.stage, func.count()).group_by(stages.c.stage))
     counts = {"open": 0, "awaiting": 0, "closed": 0}
     for stage, count in rows:
@@ -431,7 +450,31 @@ async def stage_counts(session: AsyncSession) -> dict[str, int]:
         )
         or 0
     )
+    counts["archived"] = (
+        await session.scalar(
+            select(func.count()).select_from(QuoteRequest).where(_archived_filter(True))
+        )
+        or 0
+    )
     return counts
+
+
+async def set_quote_archived(
+    session: AsyncSession, quote_id: uuid.UUID, *, archived: bool
+) -> QuoteRequest:
+    """Archive a quote request (hide it from the lists, keep it) or restore it.
+
+    Only the back-office view changes: installers' leads, the homeowner's account and the
+    emails that go out are untouched. Doing it twice is harmless.
+    """
+    quote = await _get_quote(session, quote_id, lock=True)
+    if archived and quote.archived_at is None:
+        quote.archived_at = utcnow()
+    elif not archived:
+        quote.archived_at = None
+    await session.commit()
+    await session.refresh(quote)
+    return quote
 
 
 async def list_contact_messages(
@@ -598,7 +641,7 @@ def platform_status(settings: Settings) -> PlatformStatus:
         image_uploads_configured=settings.cloudinary_configured,
         payments_configured=settings.stripe_configured,
         sms_configured=False,
-        showcase_enabled=settings.seed_showcase,
+        showcase_enabled=not settings.is_production,
     )
 
 

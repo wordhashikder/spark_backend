@@ -1,4 +1,6 @@
-"""Direct enquiries: the "Request a Quote" form on an installer's profile."""
+"""
+Direct enquiries: the "Request a Quote" form on an installer's profile.
+"""
 
 import uuid
 from datetime import datetime
@@ -54,6 +56,8 @@ class AdminEnquiry(Enquiry):
     installer_name: str
     # False: the installer is on the Free plan, so the team received the request instead.
     sent_to_installer: bool
+    # When the team archived it (hidden from the main list, kept), else None.
+    archived_at: datetime | None = None
 
     @classmethod
     def from_enquiry(cls, enquiry: InstallerEnquiry) -> Self:
@@ -68,4 +72,5 @@ class AdminEnquiry(Enquiry):
             installer_slug=enquiry.installer.slug,
             installer_name=enquiry.installer.business_name,
             sent_to_installer=enquiry.sent_to_installer,
+            archived_at=enquiry.archived_at,
         )

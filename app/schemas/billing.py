@@ -1,4 +1,6 @@
-"""Billing request and response bodies."""
+"""
+Billing request and response bodies.
+"""
 
 from datetime import datetime
 from typing import Literal, Self
@@ -13,8 +15,7 @@ PlanAction = Literal["current", "subscribe", "upgrade", "downgrade", "cancel"]
 CheckoutState = Literal["paid", "processing", "open", "expired"]
 
 
-# Where Stripe sends the person afterwards: the Dashboard's Plan & billing page (default), or
-# the website's account page (used by the "Upgrade" buttons there).
+# Where Stripe sends the person afterwards: the Dashboard's Plan & billing page (default),
 ReturnTo = Literal["dashboard", "website"]
 
 
