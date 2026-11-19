@@ -14,7 +14,7 @@ from app.content.pages.help import FAQ, JOIN
 from app.content.pages.home import HOME
 from app.content.pages.hub import HUB
 from app.content.pages.journeys import BLOG, GET_QUOTES, LOCATION
-from app.content.pages.legal import COOKIES, PRIVACY, TERMS
+from app.content.pages.legal import COOKIES, ELECTRICIANS_AGREEMENT, PRIVACY, TERMS
 from app.content.pages.site import SITE
 
 # Pages that end with the "Find installers" footer also get an optional closing section.
@@ -63,6 +63,7 @@ DOCUMENTS: dict[str, Document] = {
             PRIVACY,
             TERMS,
             COOKIES,
+            ELECTRICIANS_AGREEMENT,
         ),
     )
 }

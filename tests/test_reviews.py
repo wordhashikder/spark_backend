@@ -1,5 +1,7 @@
 """Leads, review invitations, moderation and the back office."""
 
+import uuid
+
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import security
 from app.core.enums import InstallerStatus, ReviewStatus, Role
 from app.models import Installer, QuoteMatch, Review
+from app.services import reviews as review_service
 from tests.helpers import (
     Fakes,
     Plan,
@@ -310,3 +313,46 @@ async def test_admin_endpoints_reject_everyone_else(client: httpx.AsyncClient, d
     # ...and an admin has no installer profile, so installer-only routes refuse them.
     admin = auth_headers(await create_user(db, role=Role.ADMIN))
     assert (await client.get("/api/v1/installers/me", headers=admin)).status_code == 403
+
+
+async def test_only_verified_reviews_count_towards_the_search_engine_rating(
+    client: httpx.AsyncClient, db: AsyncSession
+):
+    installer = await create_installer(db, "Markup Electrical")
+    admin = auth_headers(await create_user(db, role=Role.ADMIN))
+    url = "/api/v1/installers/markup-electrical"
+
+    empty = (await client.get(url)).json()
+    assert (empty["verified_rating_avg"], empty["verified_review_count"]) == (None, 0)
+
+    # A review the team adds by hand is published and shown, but is not verified.
+    added = await client.post(
+        "/api/v1/admin/reviews",
+        headers=admin,
+        json={"installer_id": str(installer.id), **REVIEW},
+    )
+    assert (added.status_code, added.json()["verified"]) == (201, False)
+    profile = (await client.get(url)).json()
+    assert (profile["rating_avg"], profile["review_count"]) == (5.0, 1)
+    assert (profile["verified_rating_avg"], profile["verified_review_count"]) == (None, 0)
+
+    # A review written from a review invitation is verified; pending ones are not counted.
+    lead_id = await _lead_for(client, db, installer)
+    verified = await create_review(db, installer, rating=4)
+    verified.quote_match_id = uuid.UUID(lead_id)
+    await db.commit()
+    await review_service.recompute_rating(db, installer.id)
+    await db.commit()
+
+    profile = (await client.get(url)).json()
+    assert (profile["rating_avg"], profile["review_count"]) == (4.5, 2)
+    assert (profile["verified_rating_avg"], profile["verified_review_count"]) == (4.0, 1)
+    listed = (await client.get(f"{url}/reviews")).json()["items"]
+    assert sorted(item["verified"] for item in listed) == [False, True]
+
+    rejected = await client.patch(
+        f"/api/v1/admin/reviews/{verified.id}", headers=admin, json={"status": "rejected"}
+    )
+    assert rejected.status_code == 200
+    profile = (await client.get(url)).json()
+    assert (profile["verified_rating_avg"], profile["verified_review_count"]) == (None, 0)

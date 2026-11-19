@@ -150,6 +150,28 @@ class InstallerDetail(InstallerCard):
         )
 
 
+class InstallerPublic(InstallerDetail):
+    """The public profile page's view: the profile plus the rating from verified reviews.
+
+    `rating_avg` / `review_count` cover every published review and are what the page shows.
+    The `verified_*` pair covers only reviews backed by a completed job, and is the only
+    rating the website hands to search engines (Google's review rules).
+    """
+
+    verified_rating_avg: float | None
+    verified_review_count: int
+
+    @classmethod
+    def build(
+        cls, installer: Installer, *, verified_rating_avg: float | None, verified_count: int
+    ) -> Self:
+        return cls(
+            **InstallerDetail.from_installer(installer).model_dump(),
+            verified_rating_avg=verified_rating_avg,
+            verified_review_count=verified_count,
+        )
+
+
 class InstallerProfile(InstallerDetail):
     """The installer's own, ungated view of their profile and account state."""
 

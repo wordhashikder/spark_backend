@@ -1,5 +1,5 @@
 """
-Policy pages: Privacy, Terms & Conditions, Cookies.
+Policy pages: Privacy, Terms & Conditions, Cookies, Electricians Agreement.
 
 Each is a list of sections with a heading and a Markdown body, like the
 policy editors of other back offices: add, reorder or remove sections freely.
@@ -19,6 +19,8 @@ def _policy(
     heading: str,
     updated: str,
     sections: list[dict[str, Any]],
+    *,
+    min_sections: int = 1,
 ) -> Document:
     return Document(
         key=key,
@@ -61,7 +63,7 @@ def _policy(
                         ),
                     ],
                     sections,
-                    min_items=1,
+                    min_items=min_sections,
                     max_items=40,
                     help='Shown in this order, with an "On this page" list built from the '
                     "headings.",
@@ -278,4 +280,18 @@ COOKIES = _policy(
             "explains how we handle personal information more generally.",
         ),
     ],
+)
+
+# The page installers agree to when they create an account (linked from the registration
+# form, not from the footer). It starts empty: the team writes it in the Dashboard.
+ELECTRICIANS_AGREEMENT = _policy(
+    "electricians-agreement",
+    "Electricians Agreement",
+    "/electricians-agreement/",
+    "Electricians Agreement",
+    "The agreement electricians and EV charger installers accept when they join PickASparky.",
+    "Electricians Agreement",
+    "Nov 2026",
+    [],
+    min_sections=0,
 )

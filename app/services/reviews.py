@@ -58,6 +58,27 @@ async def list_for_installer(
     return list(reviews), total or 0
 
 
+async def verified_summary(
+    session: AsyncSession, installer_id: uuid.UUID
+) -> tuple[float | None, int]:
+    """Average rating and number of an installer's published *verified* reviews.
+
+    Verified means the customer wrote it from a review invitation, so a completed job backs
+    it. Reviews the team adds by hand are left out. This is the only rating that is handed
+    to search engines as structured data; the site still shows every published review.
+    """
+    average, count = (
+        await session.execute(
+            select(func.round(func.avg(Review.rating), 1), func.count()).where(
+                Review.installer_id == installer_id,
+                Review.status == ReviewStatus.PUBLISHED,
+                Review.quote_match_id.is_not(None),
+            )
+        )
+    ).one()
+    return (None if average is None else float(average)), count
+
+
 async def _open_invitation(session: AsyncSession, token: str) -> QuoteMatch | None:
     """The lead a review invitation points at, unless the token is bad or already used."""
     try:

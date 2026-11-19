@@ -41,8 +41,8 @@ from app.schemas.conversation import (
 from app.schemas.enquiry import Enquiry, EnquiryCreate
 from app.schemas.installer import (
     InstallerCard,
-    InstallerDetail,
     InstallerProfile,
+    InstallerPublic,
     InstallerUpdate,
     Photo,
 )
@@ -377,8 +377,12 @@ async def send_enquiry(
 
 
 @router.get("/{slug}")
-async def get_installer(slug: str, session: SessionDep) -> InstallerDetail:
-    return InstallerDetail.from_installer(await installers.get_public(session, slug))
+async def get_installer(slug: str, session: SessionDep) -> InstallerPublic:
+    installer = await installers.get_public(session, slug)
+    verified_avg, verified_count = await reviews.verified_summary(session, installer.id)
+    return InstallerPublic.build(
+        installer, verified_rating_avg=verified_avg, verified_count=verified_count
+    )
 
 
 @router.get("/{slug}/reviews")
