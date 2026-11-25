@@ -85,7 +85,7 @@ HOME = Document(
                     },
                 ],
                 fixed=True,
-                help="Each card opens the quote form with its installation type selected.",
+                help="Each card opens its page (Website content > Pages).",
             ),
         ),
         section(

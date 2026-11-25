@@ -19,14 +19,16 @@ from pydantic import (
     model_validator,
 )
 
-from app.core.enums import AccreditationScheme, InstallerStatus, Service, SubscriptionStatus
+from app.core.enums import InstallerStatus, Service, SubscriptionStatus
 from app.core.exceptions import FieldValueError
 from app.core.plans import capabilities_for, registry
-from app.models import Installer
+from app.models import Installer, InstallerAccreditation
 from app.models.installer import MAX_COVERAGE_RADIUS_MILES, MIN_COVERAGE_RADIUS_MILES
+from app.schemas.accreditation import SchemeKey
 from app.schemas.common import Phone, Postcode, blank_as_none, text
 
 MAX_AREAS_COVERED = 20
+MAX_ACCREDITATIONS = 20
 _COMPANY_NUMBER = re.compile(r"[A-Z0-9]{8}")
 _http_url = TypeAdapter(HttpUrl)
 _REQUIRED_PROFILE_FIELDS = (
@@ -69,7 +71,7 @@ WebsiteUrl = Annotated[str, text(1, 255), AfterValidator(_validate_website)]
 class Accreditation(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    scheme: AccreditationScheme
+    scheme: str
     registration_number: str | None
     verified: bool
 
@@ -140,7 +142,8 @@ class InstallerDetail(InstallerCard):
             **_card_fields(installer),
             **_profile_fields(installer),
             services=installer.services[: plan.public_service_limit],
-            accreditations=installer.accreditations if full else [],
+            # Every plan shows its accreditations (the client's rule since 24 Nov 2026).
+            accreditations=_in_scheme_order(installer),
             # Where the business works is basic listing information, so every plan shows it
             # (the admin's edits to it must reach the public page whatever the plan).
             areas_covered=installer.areas_covered,
@@ -197,7 +200,7 @@ class InstallerProfile(InstallerDetail):
             **_card_fields(installer),
             **_profile_fields(installer),
             services=installer.services,
-            accreditations=installer.accreditations,
+            accreditations=_in_scheme_order(installer),
             areas_covered=installer.areas_covered,
             photos=installer.photos,
             accepts_direct_quotes=capabilities_for(installer.plan).accepts_direct_quotes,
@@ -216,6 +219,11 @@ class InstallerProfile(InstallerDetail):
             website_url=installer.website_url,
             coverage_radius_miles=installer.coverage_radius_miles,
         )
+
+
+def _in_scheme_order(installer: Installer) -> list[InstallerAccreditation]:
+    """Accreditations in the order the team set for the schemes (Dashboard > Schemes)."""
+    return sorted(installer.accreditations, key=lambda item: (item.info.position, item.scheme))
 
 
 def _card_fields(installer: Installer) -> dict[str, object]:
@@ -259,7 +267,7 @@ def _profile_fields(installer: Installer) -> dict[str, object]:
 
 
 class AccreditationInput(BaseModel):
-    scheme: AccreditationScheme
+    scheme: SchemeKey
     registration_number: Annotated[Annotated[str, text(1, 60)] | None, blank_as_none] = None
 
 
@@ -288,7 +296,7 @@ class InstallerUpdate(BaseModel):
         | None
     ) = None
     accreditations: list[AccreditationInput] | None = Field(
-        default=None, max_length=len(AccreditationScheme)
+        default=None, max_length=MAX_ACCREDITATIONS
     )
 
     @model_validator(mode="after")

@@ -26,7 +26,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import security
 from app.core.config import get_settings
 from app.core.enums import (
-    AccreditationScheme,
     BlogPostStatus,
     DirectoryColumn,
     InstallerSource,
@@ -37,6 +36,7 @@ from app.core.enums import (
 )
 from app.core.plans import DEFAULT_PLAN_KEY
 from app.models import (
+    AccreditationScheme,
     BlogPost,
     Installer,
     InstallerAccreditation,
@@ -44,6 +44,7 @@ from app.models import (
     Location,
     Review,
     SeedBatch,
+    SitePage,
     User,
 )
 from app.models.base import utcnow
@@ -51,6 +52,7 @@ from app.models.installer import DEFAULT_COVERAGE_RADIUS_MILES
 from app.schemas.blog import BlogPostCreate
 from app.services import blog, installers, profiles, reviews
 from app.services.geocoding import GeocodedPostcode
+from app.services.pages import ACCREDITATIONS_PATH, scheme_page_path
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -376,7 +378,7 @@ async def insert_showcase(session: AsyncSession) -> int:
             approved_at=now if status is InstallerStatus.APPROVED else None,
             source=InstallerSource.IMPORTED,
             accreditations=[
-                InstallerAccreditation(scheme=AccreditationScheme(scheme), verified=True)
+                InstallerAccreditation(scheme=scheme, verified=True)
                 for scheme in entry["accreditations"]
             ],
             photos=[
@@ -460,6 +462,118 @@ async def enrich_listing_profiles(session: AsyncSession) -> int:
     return changed
 
 
+# The four main pages the homepage cards link to: (address, title, one-line intro). The intro is
+# the card's own text; everything else is written by the team in Website content > Pages.
+_MAIN_PAGES = (
+    (
+        "/uk/home-ev-charger-installation/",
+        "Home EV Charger Installation",
+        "Convenient charging at home",
+    ),
+    (
+        "/uk/ev-charger-replacement/",
+        "EV Charger Replacement",
+        "Upgrade to a newer, smarter charger",
+    ),
+    (
+        "/uk/commercial-ev-charging/",
+        "Commercial EV Charging",
+        "For businesses, fleets and workplaces",
+    ),
+    (
+        "/uk/workplace-ev-charging/",
+        "Workplace EV Charging",
+        "For your team and company vehicles",
+    ),
+)
+_SAMPLE_PATH = "/uk/home-ev-charger-installation/cost/"
+_SAMPLE_SECTIONS = [
+    {
+        "heading": "How this page is built",
+        "body": (
+            "Every page has a title, a short introduction, an optional image and any number of "
+            "sections. Each section has a heading and text. The text can contain **bold** words, "
+            "bullet lists, links and images.\n\n"
+            "- Add as many sections as you need\n- Reorder them with the arrows\n"
+            "- Fill in the search title and description so Google shows the page well"
+        ),
+        "image_url": None,
+        "image_alt": None,
+    },
+    {
+        "heading": "Adding images",
+        "body": (
+            "Each section can have a picture beside its text. You can also place a picture inside "
+            "the text itself with *Insert image*, which uploads it and adds it where the cursor is."
+        ),
+        "image_url": None,
+        "image_alt": None,
+    },
+    {
+        "heading": "Linking pages together",
+        "body": (
+            "A supporting page links back to its main page, and the main page lists its supporting "
+            "pages by itself once they are published and have content. You can also link to any "
+            "other page of the site from the text."
+        ),
+        "image_url": None,
+        "image_alt": None,
+    },
+]
+_SAMPLE_FAQ = [
+    {
+        "question": "Can I change this page's web address?",
+        "answer": (
+            "Yes. Change the address in the page settings. The old address keeps working and "
+            "forwards visitors to the new one."
+        ),
+    }
+]
+
+
+async def insert_pages(session: AsyncSession) -> int:
+    """The four main pages, an unpublished sample supporting page and one page per accreditation.
+
+    Every page starts without content: it opens with its title only and stays out of search
+    engines and the sitemap until the team adds some. Pages that already exist are left alone.
+    """
+    existing = set(await session.scalars(select(SitePage.path)))
+    added = 0
+
+    def add(**fields: Any) -> None:
+        nonlocal added
+        if fields["path"] not in existing:
+            session.add(SitePage(**fields))
+            existing.add(fields["path"])
+            added += 1
+
+    for path, title, intro in _MAIN_PAGES:
+        add(path=path, title=title, intro=intro, is_published=True)
+    add(
+        path=_SAMPLE_PATH,
+        parent_path=_MAIN_PAGES[0][0],
+        title="Sample supporting page",
+        eyebrow="Sample",
+        intro=(
+            "A sample supporting page, to show how a main page and its supporting pages work "
+            "together. Replace this text or delete the page."
+        ),
+        sections=_SAMPLE_SECTIONS,
+        faq=_SAMPLE_FAQ,
+        is_published=False,
+    )
+    for scheme in await session.scalars(select(AccreditationScheme)):
+        add(
+            path=scheme_page_path(scheme.key),
+            parent_path=ACCREDITATIONS_PATH,
+            title=scheme.name,
+            is_published=True,
+            scheme_key=scheme.key,
+        )
+    await session.flush()
+    return added
+
+
 def _samples_allowed() -> bool:
     """Sample articles and showcase profiles are for development; a live site has none."""
     return not get_settings().is_production
@@ -473,6 +587,7 @@ CONTENT_BATCHES: tuple[ContentBatch, ...] = (
     ("directory-listings-2026-10", insert_listings, lambda: True),
     ("showcase-installers-2026-10", insert_showcase, _samples_allowed),
     ("directory-profiles-2026-10b", enrich_listing_profiles, lambda: True),
+    ("site-pages-2026-11", insert_pages, lambda: True),
 )
 _SEED_LOCK = 4_242_001  # pg_advisory_xact_lock key: one seeder at a time
 

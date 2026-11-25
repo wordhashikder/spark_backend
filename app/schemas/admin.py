@@ -9,7 +9,6 @@ from typing import Annotated, Self
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from app.core.enums import (
-    AccreditationScheme,
     ChargerFollowup,
     ChargerLocation,
     ContactSubject,
@@ -33,8 +32,10 @@ from app.models.installer import (
     MAX_COVERAGE_RADIUS_MILES,
     MIN_COVERAGE_RADIUS_MILES,
 )
+from app.schemas.accreditation import SchemeKey
 from app.schemas.common import Email, Phone, Postcode, blank_as_none, text
 from app.schemas.installer import (
+    MAX_ACCREDITATIONS,
     MAX_AREAS_COVERED,
     Accreditation,
     AccreditationInput,
@@ -174,7 +175,7 @@ class AdminInstallerUpdate(BaseModel):
         | None
     ) = None
     accreditations: list[AccreditationInput] | None = Field(
-        default=None, max_length=len(AccreditationScheme)
+        default=None, max_length=MAX_ACCREDITATIONS
     )
 
     @model_validator(mode="after")
@@ -198,7 +199,7 @@ class AdminInstallerCreate(BaseModel):
     contact_email: Email
     phone: Phone
     description: Annotated[Annotated[str, text(1, 4000)] | None, blank_as_none] = None
-    accreditations: list[AccreditationScheme] = Field(default_factory=list, max_length=6)
+    accreditations: list[SchemeKey] = Field(default_factory=list, max_length=MAX_ACCREDITATIONS)
     services: list[Service] = Field(
         default_factory=lambda: [Service.EV_CHARGER_INSTALLATION], min_length=1
     )

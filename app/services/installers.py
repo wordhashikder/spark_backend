@@ -189,10 +189,27 @@ async def update_profile(
         installer.location = location
 
     if data.accreditations is not None:
+        await require_offered_schemes(session, installer, data.accreditations)
         replace_accreditations(installer, data.accreditations)
 
     await session.commit()
+    if data.accreditations is not None:
+        # Reload them with their scheme (name and order) for the response.
+        await session.refresh(installer, ["accreditations"])
     return installer
+
+
+async def require_offered_schemes(
+    session: AsyncSession, installer: Installer, wanted: list[AccreditationInput]
+) -> None:
+    """Only schemes the team offers can be listed (one the installer already holds stays)."""
+    from app.services import accreditation_schemes
+
+    await accreditation_schemes.require_offered(
+        session,
+        [item.scheme for item in wanted],
+        already_held=frozenset(item.scheme for item in installer.accreditations),
+    )
 
 
 def replace_accreditations(installer: Installer, wanted: list[AccreditationInput]) -> None:

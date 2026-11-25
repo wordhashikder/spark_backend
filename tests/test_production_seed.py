@@ -37,7 +37,11 @@ async def test_production_holds_only_the_193_unclaimed_approved_listings(
 ):
     applied = await seeding.seed_content(db)
 
-    assert [name for name, _ in applied] == [LISTINGS, "directory-profiles-2026-10b"]
+    assert [name for name, _ in applied] == [
+        LISTINGS,
+        "directory-profiles-2026-10b",
+        "site-pages-2026-11",
+    ]
     assert dict(applied)[LISTINGS] == 193
     assert await _count(db, Installer) == 193
     assert await _count(db, BlogPost) == 0
@@ -52,7 +56,7 @@ async def test_production_holds_only_the_193_unclaimed_approved_listings(
     # Start-up runs it every time: nothing is added twice or brought back.
     assert await seeding.seed_content(db) == []
     assert await _count(db, Installer) == 193
-    assert await _count(db, SeedBatch) == 2
+    assert await _count(db, SeedBatch) == 3
 
 
 async def test_development_also_gets_sample_articles_and_showcase_but_no_logins(

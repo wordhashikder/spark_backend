@@ -55,7 +55,7 @@ MODULES: tuple[Module, ...] = (
         "content",
         "Site content",
         "Every section, title and description of the public pages.",
-        ("content",),
+        ("content", "pages", "accreditation-schemes"),
     ),
     Module("blog", "Blog", "Write, schedule and publish articles.", ("blog",)),
     Module("reviews", "Reviews", "Publish or reject homeowner reviews.", ("reviews",)),

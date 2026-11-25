@@ -17,11 +17,11 @@ from typing import Any
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import AccreditationScheme, InstallerStatus, Service
+from app.core.enums import InstallerStatus, Service
 from app.core.exceptions import FieldValidationError
 from app.core.plans import DEFAULT_PLAN_KEY
 from app.schemas.admin import AdminInstallerCreate, ImportReport, ImportRowError
-from app.services import admin
+from app.services import accreditation_schemes, admin
 from app.services.geocoding import Geocoder
 
 MAX_ROWS = 500
@@ -53,12 +53,16 @@ def _column(name: str) -> str:
     return _ALIASES.get(key, key)
 
 
-def _choices(value: str, enum: type[AccreditationScheme] | type[Service]) -> list[str]:
-    """Match `NICEIC; ozev` style lists against an enum's values and labels."""
+def _service_lookup() -> dict[str, str]:
     lookup: dict[str, str] = {}
-    for member in enum:
+    for member in Service:
         lookup[member.value.lower()] = member.value
         lookup[member.label.lower()] = member.value
+    return lookup
+
+
+def _choices(value: str, lookup: dict[str, str]) -> list[str]:
+    """Match `NICEIC; ozev` style lists against the known values and names."""
     items = [part.strip() for part in value.replace(";", ",").split(",") if part.strip()]
     unknown = [item for item in items if item.lower() not in lookup]
     if unknown:
@@ -77,7 +81,7 @@ def _decode(data: bytes) -> str:
     raise FieldValidationError({"file": "Save the file as CSV (UTF-8) and try again."})
 
 
-def _row_payload(row: dict[str, str]) -> dict[str, Any]:
+def _row_payload(row: dict[str, str], schemes: dict[str, str]) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "business_name": row.get("business_name", ""),
         "contact_email": row.get("contact_email", ""),
@@ -89,9 +93,9 @@ def _row_payload(row: dict[str, str]) -> dict[str, Any]:
         "plan": DEFAULT_PLAN_KEY,
     }
     if row.get("accreditations"):
-        payload["accreditations"] = _choices(row["accreditations"], AccreditationScheme)
+        payload["accreditations"] = _choices(row["accreditations"], schemes)
     if row.get("services"):
-        payload["services"] = _choices(row["services"], Service)
+        payload["services"] = _choices(row["services"], _service_lookup())
     if row.get("coverage_radius_miles"):
         payload["coverage_radius_miles"] = row["coverage_radius_miles"]
     return payload
@@ -117,6 +121,7 @@ async def import_csv(
         raise FieldValidationError({"file": f"Missing columns: {', '.join(missing)}."})
 
     rows = list(reader)
+    schemes = await accreditation_schemes.name_lookup(session)
     if len(rows) > MAX_ROWS:
         raise FieldValidationError({"file": f"Import at most {MAX_ROWS} rows at a time."})
 
@@ -135,7 +140,7 @@ async def import_csv(
         if not any(row.values()):
             continue
         try:
-            listing = AdminInstallerCreate.model_validate(_row_payload(row))
+            listing = AdminInstallerCreate.model_validate(_row_payload(row, schemes))
         except ValidationError as exc:
             errors.append(ImportRowError(row=line, business_name=name, message=_first_error(exc)))
             continue

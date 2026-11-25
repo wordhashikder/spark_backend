@@ -225,7 +225,7 @@ ACCREDITATIONS = Document(
     key="accreditations",
     label="Electrician accreditations",
     group="Guides",
-    path="/electrician-accreditations/",
+    path="/uk/accreditations/",
     description="The main schemes, what they tell you, other things to consider and FAQs.",
     sections=(
         seo(

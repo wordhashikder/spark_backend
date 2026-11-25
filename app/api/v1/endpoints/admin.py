@@ -27,7 +27,6 @@ from app.api.deps import (
     require_admin_access,
 )
 from app.core.enums import (
-    AccreditationScheme,
     BlogPostStatus,
     InstallerSource,
     InstallerStatus,
@@ -36,6 +35,11 @@ from app.core.enums import (
     StaffRole,
 )
 from app.core.exceptions import ForbiddenError
+from app.schemas.accreditation import (
+    AccreditationSchemeCreate,
+    AccreditationSchemeUpdate,
+    AdminAccreditationScheme,
+)
 from app.schemas.admin import (
     AccreditationVerification,
     AdminContactMessage,
@@ -66,6 +70,7 @@ from app.schemas.content import ContentDocument, ContentRevision, ContentSummary
 from app.schemas.conversation import ConversationDetail, ConversationSummary, MessageOut
 from app.schemas.enquiry import AdminEnquiry
 from app.schemas.location import AdminLocation, AdminLocationCreate, AdminLocationUpdate
+from app.schemas.page import AdminPage, PageCreate, PagePreview, PageUpdate
 from app.schemas.plan import AdminPlan, PlanChoice, PlanCreate, PlanUpdate
 from app.schemas.team import (
     InviteCreate,
@@ -75,6 +80,7 @@ from app.schemas.team import (
     TeamMemberUpdate,
 )
 from app.services import (
+    accreditation_schemes,
     admin,
     billing,
     blog,
@@ -87,6 +93,7 @@ from app.services import (
     installer_import,
     lead_stats,
     locations,
+    pages,
     platform,
     team,
 )
@@ -440,7 +447,7 @@ async def delete_installer_photo(
 @router.patch("/installers/{installer_id}/accreditations/{scheme}")
 async def verify_accreditation(
     installer_id: uuid.UUID,
-    scheme: AccreditationScheme,
+    scheme: str,
     data: AccreditationVerification,
     session: SessionDep,
     refresh: CacheRefreshDep,
@@ -860,6 +867,88 @@ async def delete_blog_cover(
     post = await blog.remove_cover(session, post_id, storage)
     refresh("blog")
     return AdminBlogPost.model_validate(post)
+
+
+# ---- Pages --------------------------------------------------------------------------------
+
+
+@router.get("/pages")
+async def list_pages(session: SessionDep) -> list[AdminPage]:
+    return await pages.list_all(session)
+
+
+@router.post("/pages", status_code=status.HTTP_201_CREATED)
+async def create_page(data: PageCreate, session: SessionDep, refresh: CacheRefreshDep) -> AdminPage:
+    page = await pages.create(session, data)
+    refresh("pages")
+    return page
+
+
+@router.get("/pages/{page_id}")
+async def get_page(page_id: uuid.UUID, session: SessionDep) -> AdminPage:
+    return await pages.get(session, page_id)
+
+
+@router.patch("/pages/{page_id}")
+async def update_page(
+    page_id: uuid.UUID, data: PageUpdate, session: SessionDep, refresh: CacheRefreshDep
+) -> AdminPage:
+    page = await pages.update(session, page_id, data)
+    refresh("pages")
+    return page
+
+
+@router.delete("/pages/{page_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_page(page_id: uuid.UUID, session: SessionDep, refresh: CacheRefreshDep) -> None:
+    await pages.delete(session, page_id)
+    refresh("pages")
+
+
+@router.post("/pages/{page_id}/preview")
+async def preview_page(page_id: uuid.UUID, session: SessionDep) -> PagePreview:
+    """A 30-minute link token to see the page (draft or not) on the website."""
+    token, expires_in = await pages.preview(session, page_id)
+    return PagePreview(token=token, expires_in=expires_in)
+
+
+# ---- Accreditation schemes ---------------------------------------------------------------
+
+_SCHEME_TAGS = ("accreditation-schemes", "installers", "pages")
+
+
+@router.get("/accreditation-schemes")
+async def list_accreditation_schemes(session: SessionDep) -> list[AdminAccreditationScheme]:
+    return await accreditation_schemes.list_admin(session)
+
+
+@router.post("/accreditation-schemes", status_code=status.HTTP_201_CREATED)
+async def create_accreditation_scheme(
+    data: AccreditationSchemeCreate, session: SessionDep, refresh: CacheRefreshDep
+) -> AdminAccreditationScheme:
+    scheme = await accreditation_schemes.create(session, data)
+    refresh(*_SCHEME_TAGS)
+    return await _admin_scheme(session, scheme.key)
+
+
+@router.patch("/accreditation-schemes/{key}")
+async def update_accreditation_scheme(
+    key: str, data: AccreditationSchemeUpdate, session: SessionDep, refresh: CacheRefreshDep
+) -> AdminAccreditationScheme:
+    await accreditation_schemes.update(session, key, data)
+    refresh(*_SCHEME_TAGS)
+    return await _admin_scheme(session, key)
+
+
+@router.delete("/accreditation-schemes/{key}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_accreditation_scheme(
+    key: str, session: SessionDep, refresh: CacheRefreshDep
+) -> None:
+    await accreditation_schemes.delete(session, key)
+    refresh(*_SCHEME_TAGS)
+
+
+async def _admin_scheme(session: SessionDep, key: str) -> AdminAccreditationScheme:
+    return next(item for item in await accreditation_schemes.list_admin(session) if item.key == key)
 
 
 # ---- Customers ------------------------------------------------------------------------

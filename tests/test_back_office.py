@@ -645,7 +645,7 @@ async def test_team_adds_edits_and_imports_listings(
     assert leeds is not None
     assert leeds.town == "Leeds"
     await db.refresh(leeds, ["accreditations"])
-    assert {item.scheme.value for item in leeds.accreditations} == {"niceic", "ozev"}
+    assert {item.scheme for item in leeds.accreditations} == {"niceic", "ozev"}
 
     missing = await client.post(
         f"{ADMIN}/installers/import",

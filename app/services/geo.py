@@ -10,7 +10,8 @@ from app.models import Installer
 from app.models.installer import MAX_COVERAGE_RADIUS_MILES
 
 EARTH_RADIUS_MILES = 3958.8
-_MILES_PER_DEGREE_LATITUDE = 69.0
+# Room for rounding, so a point exactly on the edge is never cut by the box.
+_BOX_MARGIN_DEGREES = 0.001
 
 
 def haversine_miles(lat_a: float, lon_a: float, lat_b: float, lon_b: float) -> float:
@@ -44,16 +45,35 @@ def installer_distance_to(latitude: float, longitude: float) -> ColumnElement[fl
     return distance_miles(Installer.latitude, Installer.longitude, latitude, longitude)
 
 
+def bounding_box_degrees(latitude: float, miles: float) -> tuple[float, float | None]:
+    """How far, in degrees, a circle of `miles` around `latitude` can reach north-south
+    and east-west. The east-west reach is `None` when the circle takes in a pole.
+
+    Exact on a sphere, so it stays safe for very large circles: the east-west reach is
+    wider than `miles / cos(latitude)` once the circle is hundreds of miles across.
+    """
+    angle = miles / EARTH_RADIUS_MILES
+    latitude_span = math.degrees(angle) + _BOX_MARGIN_DEGREES
+    ratio = math.sin(angle) / max(math.cos(math.radians(latitude)), 1e-9)
+    if angle >= math.pi / 2 or ratio >= 1:
+        return latitude_span, None
+    return latitude_span, math.degrees(math.asin(ratio)) + _BOX_MARGIN_DEGREES
+
+
 def installer_covers_point(latitude: float, longitude: float) -> ColumnElement[bool]:
     """SQL predicate: the point lies inside the installer's coverage circle.
 
-    A bounding box sized for the largest allowed radius comes first so the
-    `(latitude, longitude)` index can discard far-away installers before any trigonometry.
+    A bounding box sized for the largest allowed radius is a cheap first test; the exact
+    distance decides. The box must never exclude a point the distance accepts (see
+    `bounding_box_degrees`).
     """
-    latitude_span = MAX_COVERAGE_RADIUS_MILES / _MILES_PER_DEGREE_LATITUDE
-    longitude_span = latitude_span / max(math.cos(math.radians(latitude)), 0.01)
+    latitude_span, longitude_span = bounding_box_degrees(latitude, MAX_COVERAGE_RADIUS_MILES)
+    box = [Installer.latitude.between(latitude - latitude_span, latitude + latitude_span)]
+    if longitude_span is not None:
+        box.append(
+            Installer.longitude.between(longitude - longitude_span, longitude + longitude_span)
+        )
     return and_(
-        Installer.latitude.between(latitude - latitude_span, latitude + latitude_span),
-        Installer.longitude.between(longitude - longitude_span, longitude + longitude_span),
+        *box,
         installer_distance_to(latitude, longitude) <= Installer.coverage_radius_miles,
     )

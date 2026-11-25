@@ -12,7 +12,6 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.config import Settings
 from app.core.enums import (
-    AccreditationScheme,
     InstallerSource,
     InstallerStatus,
     QuoteStatus,
@@ -42,7 +41,15 @@ from app.schemas.admin import (
     PlatformStatus,
     QuoteCandidate,
 )
-from app.services import customers, lead_stats, locations, matching, profiles, reviews
+from app.services import (
+    accreditation_schemes,
+    customers,
+    lead_stats,
+    locations,
+    matching,
+    profiles,
+    reviews,
+)
 from app.services import email as emails
 from app.services import installers as installer_service
 from app.services import plans as plan_service
@@ -179,6 +186,7 @@ async def update_installer(
     if data.areas_covered is not None:
         installer.areas_covered = list(data.areas_covered)
     if data.accreditations is not None:
+        await installer_service.require_offered_schemes(session, installer, data.accreditations)
         installer_service.replace_accreditations(installer, data.accreditations)
     if data.business_name is not None:
         installer.business_name = data.business_name
@@ -226,6 +234,7 @@ async def build_listing(
 ) -> Installer:
     """Add (without committing) an unclaimed listing placed at its postcode."""
     await plan_service.require_assignable_plan(session, data.plan)
+    await accreditation_schemes.require_offered(session, data.accreditations)
     installer = Installer(
         slug=await installer_service.unique_slug(session, data.business_name),
         business_name=data.business_name,
@@ -266,10 +275,10 @@ async def _place(
 
 
 async def set_accreditation_verified(
-    session: AsyncSession, installer_id: uuid.UUID, scheme: AccreditationScheme, verified: bool
+    session: AsyncSession, installer_id: uuid.UUID, scheme: str, verified: bool
 ) -> Installer:
     installer = await _get_installer(session, installer_id)
-    accreditation = next((item for item in installer.accreditations if item.scheme is scheme), None)
+    accreditation = next((item for item in installer.accreditations if item.scheme == scheme), None)
     if accreditation is None:
         raise NotFoundError("The installer does not list this accreditation.")
     accreditation.verified = verified

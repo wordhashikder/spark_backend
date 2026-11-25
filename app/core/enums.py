@@ -114,15 +114,6 @@ class DirectoryColumn(StrEnum):
     OTHER = "other"
 
 
-class AccreditationScheme(LabelledEnum):
-    OZEV = "ozev", "OZEV"
-    NAPIT = "napit", "NAPIT"
-    NICEIC = "niceic", "NICEIC"
-    TRUSTMARK = "trustmark", "TrustMark"
-    MCS = "mcs", "MCS"
-    ELECSA = "elecsa", "ELECSA"
-
-
 class Service(LabelledEnum):
     EV_CHARGER_INSTALLATION = "ev_charger_installation", "EV charger installation"
     DOMESTIC_ELECTRICAL = "domestic_electrical", "Domestic electrical"

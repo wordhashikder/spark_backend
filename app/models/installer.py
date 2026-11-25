@@ -25,19 +25,20 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.enums import (
-    AccreditationScheme,
     InstallerSource,
     InstallerStatus,
     Service,
     SubscriptionStatus,
 )
+from app.models.accreditation import AccreditationScheme
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, pg_enum
 from app.models.location import Location
 from app.models.plan import DEFAULT_PLAN_KEY
 from app.models.user import User
 
 MIN_COVERAGE_RADIUS_MILES = 1
-MAX_COVERAGE_RADIUS_MILES = 100
+# Nationwide businesses work across the whole UK (raised from 100 in November 2026).
+MAX_COVERAGE_RADIUS_MILES = 1000
 DEFAULT_COVERAGE_RADIUS_MILES = 15
 _SERVICE_KEYS = ", ".join(f"'{service.value}'" for service in Service)
 
@@ -168,13 +169,20 @@ class InstallerAccreditation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     installer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("installers.id", ondelete="CASCADE"))
-    scheme: Mapped[AccreditationScheme] = mapped_column(
-        pg_enum(AccreditationScheme, "accreditation_scheme")
+    # The scheme's `key` (Dashboard > Accreditation schemes). A scheme in use cannot be deleted.
+    scheme: Mapped[str] = mapped_column(
+        String(40), ForeignKey("accreditation_schemes.key", ondelete="RESTRICT")
     )
     registration_number: Mapped[str | None] = mapped_column(String(60))
     verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     installer: Mapped[Installer] = relationship(back_populates="accreditations", lazy="raise")
+    info: Mapped[AccreditationScheme] = relationship(lazy="joined", viewonly=True)
+
+    @property
+    def label(self) -> str:
+        """The scheme's name as the team has set it (NICEIC, TrustMark, ...)."""
+        return self.info.name
 
 
 class InstallerPhoto(UUIDPrimaryKeyMixin, TimestampMixin, Base):

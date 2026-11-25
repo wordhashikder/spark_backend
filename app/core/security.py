@@ -21,6 +21,8 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_TYPE = "access"  # noqa: S105 - a claim value, not a credential
 REVIEW_INVITE_TOKEN_TYPE = "review_invite"  # noqa: S105 - a claim value, not a credential
 REVIEW_INVITE_LIFETIME = timedelta(days=60)
+PAGE_PREVIEW_TOKEN_TYPE = "page_preview"  # noqa: S105 - a claim value, not a credential
+PAGE_PREVIEW_LIFETIME = timedelta(minutes=30)
 LISTING_CLAIM_TOKEN_TYPE = "listing_claim"  # noqa: S105 - a claim value, not a credential
 LISTING_CLAIM_LIFETIME = timedelta(hours=72)
 CONVERSATION_TOKEN_TYPE = "conversation"  # noqa: S105 - a claim value, not a credential
@@ -125,6 +127,20 @@ def decode_review_invite_token(token: str) -> uuid.UUID:
     payload = _decode(token, REVIEW_INVITE_TOKEN_TYPE)
     try:
         return uuid.UUID(payload["qm"])
+    except (KeyError, ValueError) as exc:
+        raise TokenError from exc
+
+
+def create_page_preview_token(page_id: uuid.UUID) -> tuple[str, int]:
+    """A short-lived link token that lets the team see one unpublished page. `(token, seconds)`."""
+    token = _encode({"page": str(page_id), "type": PAGE_PREVIEW_TOKEN_TYPE}, PAGE_PREVIEW_LIFETIME)
+    return token, int(PAGE_PREVIEW_LIFETIME.total_seconds())
+
+
+def decode_page_preview_token(token: str) -> uuid.UUID:
+    payload = _decode(token, PAGE_PREVIEW_TOKEN_TYPE)
+    try:
+        return uuid.UUID(payload["page"])
     except (KeyError, ValueError) as exc:
         raise TokenError from exc
 

@@ -262,7 +262,7 @@ def installer_brief(installer: Installer) -> InstallerBrief:
         review_count=installer.review_count,
         verified=installer.status is InstallerStatus.APPROVED and installer.is_claimed,
         years_experience=installer.years_experience,
-        accreditations=[item.scheme.label for item in installer.accreditations if item.verified],
+        accreditations=[item.label for item in installer.accreditations if item.verified],
         plan=installer.plan,
     )
 

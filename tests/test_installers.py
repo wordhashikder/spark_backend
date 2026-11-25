@@ -88,19 +88,20 @@ async def test_location_filter_uses_coverage_and_home_location(
 
 async def test_public_profile_is_gated_by_plan(client: httpx.AsyncClient, db: AsyncSession):
     await create_installer(db, "Paid Profile", accreditations=("ozev", "niceic"))
-    await create_installer(db, "Free Profile", plan=Plan.FREE)
+    await create_installer(db, "Free Profile", plan=Plan.FREE, accreditations=("niceic",))
     await create_installer(db, "Hidden Profile", status=InstallerStatus.PENDING)
 
     paid = (await client.get("/api/v1/installers/paid-profile")).json()
     assert paid["services"] == ["ev_charger_installation", "domestic_electrical", "smart_home"]
-    assert [item["scheme"] for item in paid["accreditations"]] == ["ozev", "niceic"]
+    assert [item["scheme"] for item in paid["accreditations"]] == ["niceic", "ozev"]
     assert paid["areas_covered"] == ["Manchester", "Salford"]
     assert paid["accepts_direct_quotes"] is True
     assert paid["coverage"] == {"latitude": 53.4808, "longitude": -2.2426, "radius_miles": 15}
 
     free = (await client.get("/api/v1/installers/free-profile")).json()
     assert free["services"] == ["ev_charger_installation", "domestic_electrical"]
-    assert free["accreditations"] == []
+    # Every plan shows its accreditations (client rule, 24 Nov 2026).
+    assert [item["scheme"] for item in free["accreditations"]] == ["niceic"]
     # The areas are basic listing information: every plan shows them.
     assert free["areas_covered"] == ["Manchester", "Salford"]
     assert free["photos"] == []
@@ -289,7 +290,7 @@ async def test_profile_update_validation(client: httpx.AsyncClient, db: AsyncSes
         assert response.status_code == 422, response.text
         return set(response.json()["error"]["fields"])
 
-    assert await fields({"coverage_radius_miles": 500}) == {"coverage_radius_miles"}
+    assert await fields({"coverage_radius_miles": 1001}) == {"coverage_radius_miles"}
     assert await fields({"services": ["time_travel"]}) == {"services"}
     assert await fields({"business_name": None}) == {"business_name"}
     assert await fields({"base_postcode": "ZZ99 9ZZ"}) == {"base_postcode"}

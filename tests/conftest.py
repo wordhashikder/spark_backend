@@ -56,8 +56,9 @@ from tests.helpers import Fakes  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 _PRESERVED_TABLES = {"locations"}
-# The plan catalogue the migration seeds; every test starts from it (tests may edit plans).
-_PLAN_TABLES = ("plans", "plan_prices")
+# The plan catalogue and accreditation schemes the migration seeds; every test starts from them
+# (tests may edit them).
+_PLAN_TABLES = ("plans", "plan_prices", "accreditation_schemes")
 _plan_snapshot: dict[str, list[dict[str, object]]] = {}
 
 
