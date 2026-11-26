@@ -894,7 +894,9 @@ async def update_page(
     page_id: uuid.UUID, data: PageUpdate, session: SessionDep, refresh: CacheRefreshDep
 ) -> AdminPage:
     page = await pages.update(session, page_id, data)
-    refresh("pages")
+    # An accreditation's page also decides whether its card on installer profiles links to
+    # it (`href` comes with the schemes), so that list is refreshed with the page.
+    refresh("pages", *(("accreditation-schemes",) if page.scheme_key else ()))
     return page
 
 

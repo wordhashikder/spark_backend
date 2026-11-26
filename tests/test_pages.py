@@ -235,6 +235,29 @@ async def test_a_scheme_gets_its_own_page_and_the_link_appears_with_content(
     assert deleted.status_code == 409
 
 
+async def test_saving_a_scheme_page_refreshes_the_schemes_on_the_website(
+    client: httpx.AsyncClient, db: AsyncSession, headers: dict[str, str], fakes
+):
+    """The card on installer profiles links to the page; its cache must not wait an hour."""
+    await seeding.insert_pages(db)
+    await db.commit()
+    scheme_page = await db.scalar(select(SitePage).where(SitePage.scheme_key == "niceic"))
+    other = await _create(client, headers, path="/uk/another-page/")
+    assert scheme_page is not None
+
+    fakes.revalidator.tags.clear()
+    await client.patch(
+        f"{ADMIN}/pages/{other['id']}", json={"sections": [SECTION]}, headers=headers
+    )
+    assert fakes.revalidator.tags == ["pages"]
+
+    fakes.revalidator.tags.clear()
+    await client.patch(
+        f"{ADMIN}/pages/{scheme_page.id}", json={"sections": [SECTION]}, headers=headers
+    )
+    assert fakes.revalidator.tags == ["pages", "accreditation-schemes"]
+
+
 async def test_team_adds_edits_and_removes_a_scheme(
     client: httpx.AsyncClient, db: AsyncSession, headers: dict[str, str]
 ):
