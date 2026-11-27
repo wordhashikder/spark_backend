@@ -61,6 +61,7 @@ def to_entry(plan: Plan) -> PlanEntry:
             public_service_limit=plan.public_service_limit,
             sort_rank=plan.sort_rank,
             max_gallery_photos=plan.max_gallery_photos,
+            shows_website_link=plan.shows_website_link,
         ),
         price_pence=price.amount_pence if price else None,
         currency=price.currency if price else CURRENCY,
@@ -233,6 +234,7 @@ async def create_plan(session: AsyncSession, data: PlanCreate, gateway: BillingG
         full_public_profile=data.full_public_profile,
         public_service_limit=data.public_service_limit,
         max_gallery_photos=data.max_gallery_photos,
+        shows_website_link=data.shows_website_link,
         prices=[],
     )
     session.add(plan)
@@ -268,6 +270,7 @@ async def update_plan(
         "receives_leads",
         "accepts_direct_quotes",
         "full_public_profile",
+        "shows_website_link",
         "max_gallery_photos",
     ):
         if field in sent:

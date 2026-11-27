@@ -320,3 +320,52 @@ async def test_a_scheme_in_use_cannot_be_deleted_and_inactive_ones_are_not_offer
         headers=headers,
     )
     assert created.status_code == 422, created.text
+
+
+# ---- Cards inside a section ---------------------------------------------------------------
+
+CARDS = [
+    {"icon": "shield-check", "title": "Verified details", "description": "We check the basics."},
+    {"icon": "", "title": "Compare quotes", "description": "See several quotes side by side."},
+]
+
+
+async def test_a_section_can_be_a_grid_of_cards(client: httpx.AsyncClient, headers: dict[str, str]):
+    page = await _create(client, headers, is_published=True)
+    saved = await client.patch(
+        f"{ADMIN}/pages/{page['id']}",
+        json={"sections": [{"heading": "Why PickASparky", "cards": CARDS}, SECTION]},
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    # A cards-only section counts as content, so the page is indexable.
+    assert saved.json()["is_indexable"] is True
+    shown = (await _lookup(client, page["path"])).json()["page"]
+    cards = shown["sections"][0]["cards"]
+    assert [card["title"] for card in cards] == ["Verified details", "Compare quotes"]
+    assert cards[0]["icon"] == "shield-check"
+    # A blank icon is "no icon chosen"; a section without cards still has none.
+    assert cards[1]["icon"] is None
+    assert shown["sections"][1]["cards"] == []
+
+
+async def test_a_section_needs_text_or_cards_and_cards_are_checked(
+    client: httpx.AsyncClient, headers: dict[str, str]
+):
+    page = await _create(client, headers)
+
+    async def save(section: dict):
+        return await client.patch(
+            f"{ADMIN}/pages/{page['id']}", json={"sections": [section]}, headers=headers
+        )
+
+    assert (await save({"heading": "Empty"})).status_code == 422
+    assert (
+        await save({"heading": "Bad icon", "cards": [{**CARDS[0], "icon": "No Spaces!"}]})
+    ).status_code == 422
+    assert (
+        await save({"heading": "No title", "cards": [{**CARDS[0], "title": " "}]})
+    ).status_code == 422
+    too_many = [{**CARDS[0], "title": f"Card {index}"} for index in range(13)]
+    assert (await save({"heading": "Too many", "cards": too_many})).status_code == 422
+    assert (await save({"heading": "Fine", "cards": CARDS})).status_code == 200

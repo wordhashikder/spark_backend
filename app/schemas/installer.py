@@ -132,6 +132,8 @@ class InstallerDetail(InstallerCard):
     postcode_district: str
     listed_since: datetime | None
     cover_image: CoverImage | None
+    # Shown only when the plan allows it (Dashboard > Plans); always `None` otherwise.
+    website_url: str | None
 
     @classmethod
     def from_installer(cls, installer: Installer) -> Self:
@@ -150,6 +152,7 @@ class InstallerDetail(InstallerCard):
             photos=installer.photos if full else [],
             # Requests to an unclaimed listing go to the team (see `services/enquiries.py`).
             accepts_direct_quotes=plan.accepts_direct_quotes and installer.is_claimed,
+            website_url=installer.website_url if plan.shows_website_link else None,
         )
 
 
@@ -191,7 +194,6 @@ class InstallerProfile(InstallerDetail):
     phone: str
     contact_name: str
     company_number: str | None
-    website_url: str | None
     coverage_radius_miles: int
 
     @classmethod

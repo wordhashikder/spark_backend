@@ -30,7 +30,8 @@ class SitePage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     intro: Mapped[str | None] = mapped_column(Text)
     hero_image_url: Mapped[str | None] = mapped_column(String(500))
     hero_image_alt: Mapped[str | None] = mapped_column(String(160))
-    # [{"heading", "body" (Markdown, may contain images), "image_url", "image_alt"}]
+    # [{"heading", "body" (Markdown, may contain images), "image_url", "image_alt",
+    #   "cards": [{"icon", "title", "description"}]}]
     sections: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, default=list, server_default=text("'[]'::jsonb")
     )

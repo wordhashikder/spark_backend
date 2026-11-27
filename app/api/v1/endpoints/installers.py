@@ -22,6 +22,7 @@ from app.api.deps import (
     StorageDep,
     read_upload,
 )
+from app.core.enums import Service
 from app.core.plans import capabilities_for
 from app.core.rate_limit import rate_limit
 from app.models import Installer, QuoteMatch
@@ -49,6 +50,12 @@ from app.schemas.installer import (
 from app.schemas.quote import Lead, LeadUpdate
 from app.schemas.review import ReviewOut
 from app.services import claims, conversations, dashboard, enquiries, installers, leads, reviews
+from app.services.installer_search import (
+    DEFAULT_DISTANCE_MILES,
+    MAX_DISTANCE_MILES,
+    SearchQuery,
+    search,
+)
 
 router = APIRouter(prefix="/installers", tags=["installers"])
 
@@ -58,6 +65,39 @@ _PUBLIC_PAGES = ("installers", "locations")
 
 _DEFAULT_SIMILAR = 4
 _ENQUIRY_SENT = "Your request has been sent. We've emailed you a copy."
+
+
+@router.get("/search", dependencies=[Depends(rate_limit("installer-search", "60/minute"))])
+async def search_installers(
+    session: SessionDep,
+    geocoder: GeocoderDep,
+    page: PageDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    company: Annotated[str | None, Query(max_length=120)] = None,
+    location: Annotated[str | None, Query(max_length=80)] = None,
+    service: Service | None = None,
+    accreditation: Annotated[str | None, Query(max_length=40)] = None,
+    distance: Annotated[int, Query(ge=1, le=MAX_DISTANCE_MILES)] = DEFAULT_DISTANCE_MILES,
+) -> Paginated[InstallerCard]:
+    """The /search/ page: best plan first, rotating hourly inside each plan.
+
+    A postcode in `q` finds installers based within `distance` miles of it.
+    """
+    query = SearchQuery(
+        text=(q or "").strip() or None,
+        company=(company or "").strip() or None,
+        location=(location or "").strip() or None,
+        service=service,
+        accreditation=(accreditation or "").strip().lower() or None,
+        distance_miles=distance,
+    )
+    found, total = await search(session, query, geocoder, offset=page.offset, limit=page.page_size)
+    return Paginated.build(
+        [InstallerCard.from_installer(installer) for installer in found],
+        total=total,
+        page=page.page,
+        page_size=page.page_size,
+    )
 
 
 @router.get("")

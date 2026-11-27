@@ -99,7 +99,8 @@ async def test_public_profile_is_gated_by_plan(client: httpx.AsyncClient, db: As
     assert paid["coverage"] == {"latitude": 53.4808, "longitude": -2.2426, "radius_miles": 15}
 
     free = (await client.get("/api/v1/installers/free-profile")).json()
-    assert free["services"] == ["ev_charger_installation", "domestic_electrical"]
+    # Every plan shows all of an installer's services (client rule, 27 Nov 2026).
+    assert free["services"] == ["ev_charger_installation", "domestic_electrical", "smart_home"]
     # Every plan shows its accreditations (client rule, 24 Nov 2026).
     assert [item["scheme"] for item in free["accreditations"]] == ["niceic"]
     # The areas are basic listing information: every plan shows them.

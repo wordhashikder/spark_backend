@@ -67,6 +67,8 @@ class Plan(TimestampMixin, Base):
         Boolean, default=False, server_default=false()
     )
     public_service_limit: Mapped[int | None] = mapped_column(Integer)
+    # Whether the installer's website address is shown (and linked) on the public profile.
+    shows_website_link: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     max_gallery_photos: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
 
     stripe_product_id: Mapped[str | None] = mapped_column(String(255), unique=True)

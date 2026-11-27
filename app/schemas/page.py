@@ -14,6 +14,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StringConstraints,
     model_validator,
 )
 
@@ -22,6 +23,7 @@ from app.core.exceptions import FieldValueError
 from app.schemas.common import blank_as_none, text
 
 MAX_SECTIONS = 30
+MAX_SECTION_CARDS = 12
 MAX_FAQ = 30
 MAX_DEPTH = 5
 
@@ -74,11 +76,36 @@ SeoTitle = Annotated[Annotated[str, text(1, 70)] | None, blank_as_none]
 SeoDescription = Annotated[Annotated[str, text(1, 160)] | None, blank_as_none]
 
 
+class SectionCard(BaseModel):
+    """One card of a section's grid: an icon, a title and a short description."""
+
+    # The name of an icon from the Dashboard's list. The website shows a default one for a name
+    # it does not know, so an old card never breaks when the list changes.
+    icon: Annotated[Annotated[str, Field(pattern=r"^[a-z0-9-]{1,40}$")] | None, blank_as_none] = (
+        None
+    )
+    title: Annotated[str, text(1, 80)]
+    description: Annotated[str, text(1, 400)]
+
+
 class PageSection(BaseModel):
     heading: Annotated[str, text(1, 120)]
-    body: Annotated[str, text(1, 20_000), AfterValidator(_markdown)]
+    # Optional when the section is made of cards.
+    body: Annotated[
+        str, StringConstraints(strip_whitespace=True, max_length=20_000), AfterValidator(_markdown)
+    ] = ""
     image_url: OptionalImage = None
     image_alt: AltText = None
+    # A grid of cards after the text (two columns on a wide screen).
+    cards: Annotated[list[SectionCard], Field(max_length=MAX_SECTION_CARDS)] = Field(
+        default_factory=list
+    )
+
+    @model_validator(mode="after")
+    def _has_content(self) -> Self:
+        if not self.body and not self.cards:
+            raise FieldValueError("body", "Write some text or add at least one card.")
+        return self
 
     @model_validator(mode="after")
     def _image_needs_alt(self) -> Self:

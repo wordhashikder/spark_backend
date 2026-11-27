@@ -69,6 +69,8 @@ class PlanFields(BaseModel):
     # Blank = every service is shown publicly.
     public_service_limit: int | None = Field(default=None, ge=1, le=20)
     max_gallery_photos: int = Field(default=0, ge=0, le=100)
+    # Show the installer's website address, as a link, on the public profile.
+    shows_website_link: bool = False
 
 
 class PlanCreate(PlanFields):
@@ -93,6 +95,7 @@ class PlanUpdate(BaseModel):
     full_public_profile: bool | None = None
     public_service_limit: int | None = Field(default=None, ge=1, le=20)
     max_gallery_photos: int | None = Field(default=None, ge=0, le=100)
+    shows_website_link: bool | None = None
     price_pence: int | None = Field(default=None, ge=MIN_PRICE_PENCE, le=MAX_PRICE_PENCE)
 
     @model_validator(mode="after")
@@ -106,6 +109,7 @@ class PlanUpdate(BaseModel):
             "receives_leads",
             "accepts_direct_quotes",
             "full_public_profile",
+            "shows_website_link",
             "max_gallery_photos",
         ):
             if field in self.model_fields_set and getattr(self, field) is None:
@@ -145,6 +149,7 @@ class AdminPlan(BaseModel):
     full_public_profile: bool
     public_service_limit: int | None
     max_gallery_photos: int
+    shows_website_link: bool
     # The price new subscribers pay (monthly), and every price the plan has had.
     price_pence: int | None
     currency: str
@@ -176,6 +181,7 @@ class AdminPlan(BaseModel):
             full_public_profile=plan.full_public_profile,
             public_service_limit=plan.public_service_limit,
             max_gallery_photos=plan.max_gallery_photos,
+            shows_website_link=plan.shows_website_link,
             price_pence=current.amount_pence if current else None,
             currency=current.currency if current else "gbp",
             prices=[PlanPriceOut.from_price(price) for price in prices],

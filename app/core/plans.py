@@ -27,6 +27,7 @@ class PlanCapabilities:
     public_service_limit: int | None
     sort_rank: int
     max_gallery_photos: int
+    shows_website_link: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,9 +63,10 @@ _FALLBACK = PlanEntry(
         receives_leads=False,
         accepts_direct_quotes=False,
         full_public_profile=False,
-        public_service_limit=2,
+        public_service_limit=None,
         sort_rank=0,
         max_gallery_photos=0,
+        shows_website_link=False,
     ),
     price_pence=None,
     currency="gbp",
