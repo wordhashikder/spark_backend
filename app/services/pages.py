@@ -58,10 +58,11 @@ _RESERVED_FIRST_SEGMENTS = frozenset(
         "messages",
         "privacy-policy",
         "review",
+        "search",  # the old address of /uk/search/, now a redirect
         "terms-and-conditions",
     }
 )
-_RESERVED_UK_SUBTREES = frozenset({"ev-charger-installers", "installer", "my-quotes"})
+_RESERVED_UK_SUBTREES = frozenset({"ev-charger-installers", "installer", "my-quotes", "search"})
 _RESERVED_EXACT = frozenset({"/uk/", ACCREDITATIONS_PATH})
 
 

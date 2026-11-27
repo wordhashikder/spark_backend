@@ -101,6 +101,8 @@ async def test_addresses_are_checked(client: httpx.AsyncClient, headers: dict[st
         "/blog/my-post/",  # belongs to the blog
         "/uk/ev-charger-installers/manchester/",  # belongs to the directory
         "/uk/accreditations/",  # the overview page
+        "/uk/search/",  # the search page
+        "/search/",  # its old address
         "/api/anything/",  # the API
         "/uk/with space/",  # not a web-safe address
         "/",
